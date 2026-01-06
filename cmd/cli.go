@@ -5,23 +5,28 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
-	"github.com/monochromegane/stamp/internal/greet"
+	"github.com/monochromegane/stamp/internal/stamp"
 )
 
 const cmdName = "stamp"
 
-type GreetCmd struct {
-	Name string `arg:"" optional:"" default:"world" help:"Name to greet"`
+type PressCmd struct {
+	Src  string `required:"" help:"Source directory to copy from" short:"s"`
+	Dest string `required:"" help:"Destination directory to copy to" short:"d"`
 }
 
-func (c *GreetCmd) Run(ctx *kong.Context) error {
-	greeter := greet.New(os.Stdout)
-	return greeter.Execute(c.Name)
+func (c *PressCmd) Run(ctx *kong.Context) error {
+	stamper := stamp.New()
+	if err := stamper.Execute(c.Src, c.Dest); err != nil {
+		return fmt.Errorf("stamp failed: %w", err)
+	}
+	fmt.Fprintf(os.Stdout, "Successfully stamped from %s to %s\n", c.Src, c.Dest)
+	return nil
 }
 
 type CLI struct {
 	Version kong.VersionFlag `help:"Show version"`
-	Greet   GreetCmd         `cmd:"" help:"Greet someone"`
+	Press   PressCmd         `cmd:"press" help:"Copy directory structure with template expansion"`
 }
 
 func NewCLI() *CLI {

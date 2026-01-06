@@ -1,0 +1,95 @@
+package stamp
+
+import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+)
+
+// Stamper handles directory copying with template expansion
+type Stamper struct {
+	templateVars map[string]string
+}
+
+// New creates a new Stamper with predefined template variables
+func New() *Stamper {
+	return &Stamper{
+		templateVars: map[string]string{
+			"name": "alice",
+		},
+	}
+}
+
+// Execute performs the directory copy operation
+// It walks the source directory tree and processes each file
+func (s *Stamper) Execute(src, dest string) error {
+	// Validate source exists
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("source directory error: %w", err)
+	}
+	if !srcInfo.IsDir() {
+		return fmt.Errorf("source is not a directory: %s", src)
+	}
+
+	// Create destination directory
+	if err := os.MkdirAll(dest, 0755); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	// Walk source directory
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		// Calculate relative path from source
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return fmt.Errorf("failed to get relative path: %w", err)
+		}
+
+		// Calculate destination path
+		destPath := filepath.Join(dest, relPath)
+
+		// Handle directories
+		if info.IsDir() {
+			return os.MkdirAll(destPath, info.Mode())
+		}
+
+		// Handle files
+		return s.processFile(path, destPath)
+	})
+}
+
+// processFile determines whether to template or copy a file
+func (s *Stamper) processFile(srcPath, destPath string) error {
+	// Check if file ends with .tmpl
+	if strings.HasSuffix(srcPath, ".tmpl") {
+		return s.processTemplate(srcPath, destPath)
+	}
+	return s.copyFile(srcPath, destPath)
+}
+
+// copyFile copies a regular file from src to dest preserving permissions
+func (s *Stamper) copyFile(src, dest string) error {
+	// Get source file info for permissions
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return fmt.Errorf("failed to stat source file: %w", err)
+	}
+
+	// Read source file
+	content, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("failed to read source file: %w", err)
+	}
+
+	// Write to destination with source permissions
+	if err := os.WriteFile(dest, content, srcInfo.Mode()); err != nil {
+		return fmt.Errorf("failed to write destination file: %w", err)
+	}
+
+	return nil
+}

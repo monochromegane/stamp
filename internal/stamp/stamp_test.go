@@ -1,0 +1,270 @@
+package stamp
+
+import (
+	"os"
+	"path/filepath"
+	"runtime"
+	"testing"
+)
+
+// TestExecute_ValidDirectories tests basic directory copying
+func TestExecute_ValidDirectories(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create a regular file
+	createTestFile(t, src, "readme.md", "Static content")
+
+	// Execute
+	stamper := New()
+	err := stamper.Execute(src, dest)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	expectedPath := filepath.Join(dest, "readme.md")
+	assertFileExists(t, expectedPath)
+	assertFileContent(t, expectedPath, "Static content")
+}
+
+// TestExecute_TemplateExpansion tests .tmpl file processing
+func TestExecute_TemplateExpansion(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create template file
+	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
+
+	// Execute
+	stamper := New()
+	err := stamper.Execute(src, dest)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	expectedPath := filepath.Join(dest, "hello.txt")
+	assertFileExists(t, expectedPath)
+	assertFileContent(t, expectedPath, "Hello alice!")
+}
+
+// TestExecute_TemplateExtensionRemoved tests that .tmpl extension is removed
+func TestExecute_TemplateExtensionRemoved(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create template file
+	createTestFile(t, src, "code.go.tmpl", "package {{.name}}")
+
+	// Execute
+	stamper := New()
+	err := stamper.Execute(src, dest)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	// File should exist without .tmpl extension
+	expectedPath := filepath.Join(dest, "code.go")
+	assertFileExists(t, expectedPath)
+	assertFileContent(t, expectedPath, "package alice")
+
+	// File with .tmpl should NOT exist
+	unexpectedPath := filepath.Join(dest, "code.go.tmpl")
+	assertFileNotExists(t, unexpectedPath)
+}
+
+// TestExecute_NonTemplateFiles tests that regular files are copied as-is
+func TestExecute_NonTemplateFiles(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create regular files
+	createTestFile(t, src, "readme.md", "# README")
+	createTestFile(t, src, "config.json", `{"key": "value"}`)
+
+	// Execute
+	stamper := New()
+	err := stamper.Execute(src, dest)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	assertFileExists(t, filepath.Join(dest, "readme.md"))
+	assertFileContent(t, filepath.Join(dest, "readme.md"), "# README")
+
+	assertFileExists(t, filepath.Join(dest, "config.json"))
+	assertFileContent(t, filepath.Join(dest, "config.json"), `{"key": "value"}`)
+}
+
+// TestExecute_NestedDirectories tests recursive directory copying
+func TestExecute_NestedDirectories(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create nested directory structure
+	subdir := filepath.Join(src, "subdir")
+	if err := os.MkdirAll(subdir, 0755); err != nil {
+		t.Fatalf("failed to create subdir: %v", err)
+	}
+	createTestFile(t, src, "root.txt", "root content")
+	createTestFile(t, subdir, "nested.txt", "nested content")
+
+	// Execute
+	stamper := New()
+	err := stamper.Execute(src, dest)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	assertFileExists(t, filepath.Join(dest, "root.txt"))
+	assertFileContent(t, filepath.Join(dest, "root.txt"), "root content")
+
+	assertFileExists(t, filepath.Join(dest, "subdir", "nested.txt"))
+	assertFileContent(t, filepath.Join(dest, "subdir", "nested.txt"), "nested content")
+}
+
+// TestExecute_PreservesPermissions tests file permission preservation
+func TestExecute_PreservesPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping permission test on Windows")
+	}
+
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create file with specific permissions
+	filePath := filepath.Join(src, "script.sh")
+	if err := os.WriteFile(filePath, []byte("#!/bin/bash"), 0755); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+
+	// Execute
+	stamper := New()
+	err := stamper.Execute(src, dest)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	destPath := filepath.Join(dest, "script.sh")
+	assertFileExists(t, destPath)
+
+	// Check permissions
+	info, err := os.Stat(destPath)
+	if err != nil {
+		t.Fatalf("failed to stat destination file: %v", err)
+	}
+
+	if info.Mode().Perm() != 0755 {
+		t.Errorf("file permissions = %o, want %o", info.Mode().Perm(), 0755)
+	}
+}
+
+// TestExecute_SourceNotExists tests error handling for non-existent source
+func TestExecute_SourceNotExists(t *testing.T) {
+	dest := t.TempDir()
+
+	// Execute with non-existent source
+	stamper := New()
+	err := stamper.Execute("/nonexistent/path", dest)
+
+	// Assert error is returned
+	if err == nil {
+		t.Fatal("Execute() should return error for non-existent source")
+	}
+}
+
+// TestExecute_InvalidTemplate tests template parsing errors
+func TestExecute_InvalidTemplate(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create .tmpl file with invalid template syntax
+	createTestFile(t, src, "bad.tmpl", "Invalid {{.missing")
+
+	// Execute
+	stamper := New()
+	err := stamper.Execute(src, dest)
+
+	// Assert error is returned
+	if err == nil {
+		t.Fatal("Execute() should return error for invalid template")
+	}
+}
+
+// TestExecute_MixedFiles tests both .tmpl and regular files together
+func TestExecute_MixedFiles(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create mix of files
+	createTestFile(t, src, "greeting.txt.tmpl", "Hello {{.name}}")
+	createTestFile(t, src, "readme.md", "# README")
+	createTestFile(t, src, "config.tmpl", "name={{.name}}")
+
+	// Execute
+	stamper := New()
+	err := stamper.Execute(src, dest)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	// Template files should be processed
+	assertFileExists(t, filepath.Join(dest, "greeting.txt"))
+	assertFileContent(t, filepath.Join(dest, "greeting.txt"), "Hello alice")
+
+	assertFileExists(t, filepath.Join(dest, "config"))
+	assertFileContent(t, filepath.Join(dest, "config"), "name=alice")
+
+	// Regular files should be copied as-is
+	assertFileExists(t, filepath.Join(dest, "readme.md"))
+	assertFileContent(t, filepath.Join(dest, "readme.md"), "# README")
+}
+
+// Test helpers
+
+// createTestFile creates a file with given content in a directory
+func createTestFile(t *testing.T, dir, filename, content string) string {
+	path := filepath.Join(dir, filename)
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		t.Fatalf("failed to create test file: %v", err)
+	}
+	return path
+}
+
+// assertFileContent verifies file exists and has expected content
+func assertFileContent(t *testing.T, path, expected string) {
+	content, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("failed to read file %s: %v", path, err)
+	}
+	if string(content) != expected {
+		t.Errorf("file content = %q, want %q", string(content), expected)
+	}
+}
+
+// assertFileExists checks if a file exists
+func assertFileExists(t *testing.T, path string) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		t.Errorf("expected file to exist: %s", path)
+	}
+}
+
+// assertFileNotExists checks if a file does not exist
+func assertFileNotExists(t *testing.T, path string) {
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Errorf("expected file to not exist: %s", path)
+	}
+}
