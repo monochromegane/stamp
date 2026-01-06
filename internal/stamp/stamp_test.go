@@ -3,6 +3,7 @@ package stamp
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 )
 
@@ -133,6 +134,10 @@ func TestExecute_NestedDirectories(t *testing.T) {
 
 // TestExecute_PreservesPermissions tests file permission preservation
 func TestExecute_PreservesPermissions(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("Skipping permission test on Windows")
+	}
+
 	src := t.TempDir()
 	dest := t.TempDir()
 
@@ -160,8 +165,8 @@ func TestExecute_PreservesPermissions(t *testing.T) {
 		t.Fatalf("failed to stat destination file: %v", err)
 	}
 
-	if info.Mode() != 0755 {
-		t.Errorf("file permissions = %o, want %o", info.Mode(), 0755)
+	if info.Mode().Perm() != 0755 {
+		t.Errorf("file permissions = %o, want %o", info.Mode().Perm(), 0755)
 	}
 }
 
