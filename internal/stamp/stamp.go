@@ -64,7 +64,7 @@ func (s *Stamper) Execute(src, dest string) error {
 
 		// Handle directories
 		if info.IsDir() {
-			return os.MkdirAll(destPath, info.Mode())
+			return os.MkdirAll(destPath, 0755)
 		}
 
 		// Handle files
@@ -81,22 +81,16 @@ func (s *Stamper) processFile(srcPath, destPath string) error {
 	return s.copyFile(srcPath, destPath)
 }
 
-// copyFile copies a regular file from src to dest preserving permissions
+// copyFile copies a regular file from src to dest
 func (s *Stamper) copyFile(src, dest string) error {
-	// Get source file info for permissions
-	srcInfo, err := os.Stat(src)
-	if err != nil {
-		return fmt.Errorf("failed to stat source file: %w", err)
-	}
-
 	// Read source file
 	content, err := os.ReadFile(src)
 	if err != nil {
 		return fmt.Errorf("failed to read source file: %w", err)
 	}
 
-	// Write to destination with source permissions
-	if err := os.WriteFile(dest, content, srcInfo.Mode()); err != nil {
+	// Write to destination with standard permissions
+	if err := os.WriteFile(dest, content, 0644); err != nil {
 		return fmt.Errorf("failed to write destination file: %w", err)
 	}
 

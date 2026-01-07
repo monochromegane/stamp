@@ -3,7 +3,6 @@ package stamp
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
@@ -130,44 +129,6 @@ func TestExecute_NestedDirectories(t *testing.T) {
 
 	assertFileExists(t, filepath.Join(dest, "subdir", "nested.txt"))
 	assertFileContent(t, filepath.Join(dest, "subdir", "nested.txt"), "nested content")
-}
-
-// TestExecute_PreservesPermissions tests file permission preservation
-func TestExecute_PreservesPermissions(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping permission test on Windows")
-	}
-
-	src := t.TempDir()
-	dest := t.TempDir()
-
-	// Create file with specific permissions
-	filePath := filepath.Join(src, "script.sh")
-	if err := os.WriteFile(filePath, []byte("#!/bin/bash"), 0755); err != nil {
-		t.Fatalf("failed to create test file: %v", err)
-	}
-
-	// Execute
-	stamper := New(nil)
-	err := stamper.Execute(src, dest)
-
-	// Assert
-	if err != nil {
-		t.Fatalf("Execute() returned error: %v", err)
-	}
-
-	destPath := filepath.Join(dest, "script.sh")
-	assertFileExists(t, destPath)
-
-	// Check permissions
-	info, err := os.Stat(destPath)
-	if err != nil {
-		t.Fatalf("failed to stat destination file: %v", err)
-	}
-
-	if info.Mode().Perm() != 0755 {
-		t.Errorf("file permissions = %o, want %o", info.Mode().Perm(), 0755)
-	}
 }
 
 // TestExecute_SourceNotExists tests error handling for non-existent source
