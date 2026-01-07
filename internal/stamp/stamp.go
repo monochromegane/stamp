@@ -12,12 +12,21 @@ type Stamper struct {
 	templateVars map[string]string
 }
 
-// New creates a new Stamper with predefined template variables
-func New() *Stamper {
+// New creates a new Stamper with provided template variables
+// If vars is nil or empty, uses default values
+func New(vars map[string]string) *Stamper {
+	// Start with defaults
+	templateVars := map[string]string{
+		"name": "alice",
+	}
+
+	// Merge provided variables (override defaults)
+	for k, v := range vars {
+		templateVars[k] = v
+	}
+
 	return &Stamper{
-		templateVars: map[string]string{
-			"name": "alice",
-		},
+		templateVars: templateVars,
 	}
 }
 
