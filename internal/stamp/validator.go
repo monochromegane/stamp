@@ -40,12 +40,12 @@ func (e *ValidationError) Error() string {
 	}
 
 	sb.WriteString("\nProvide missing variables using:\n")
-	sb.WriteString("  - Command line: stamp press -s <src> -d <dest> ")
+	sb.WriteString("  - Command line: stamp press -t <template> -d <dest> ")
 	for _, varName := range varNames {
 		sb.WriteString(fmt.Sprintf("%s=<value> ", varName))
 	}
 	sb.WriteString("\n")
-	sb.WriteString("  - Config file: stamp press -s <src> -d <dest> -c config.yaml\n")
+	sb.WriteString("  - Config file: Create stamp.yaml in template or config directory\n")
 
 	return sb.String()
 }

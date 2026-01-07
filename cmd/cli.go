@@ -6,52 +6,62 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/monochromegane/stamp/internal/config"
+	"github.com/monochromegane/stamp/internal/configdir"
 	"github.com/monochromegane/stamp/internal/stamp"
 )
 
 const cmdName = "stamp"
 
 type PressCmd struct {
-	Src    string            `required:"" help:"Source directory to copy from" short:"s"`
-	Dest   string            `required:"" help:"Destination directory to copy to" short:"d"`
-	Config string            `optional:"" help:"Path to YAML config file" short:"c"`
-	Vars   map[string]string `arg:"" optional:"" help:"Template variables in KEY=VALUE format"`
+	Template string            `required:"" help:"Template name from config directory" short:"t"`
+	Dest     string            `optional:"" default:"." help:"Destination directory to copy to (default: current directory)" short:"d"`
+	Config   string            `optional:"" help:"Config directory path (overrides default)" short:"c"`
+	Vars     map[string]string `arg:"" optional:"" help:"Template variables in KEY=VALUE format"`
 }
 
 func (c *PressCmd) Run(ctx *kong.Context) error {
-	// Build merged variables with priority: CLI args > config file > defaults
-	mergedVars, err := c.buildVariables()
+	// 1. Resolve config directory
+	configDir, err := configdir.GetConfigDirWithOverride(c.Config)
 	if err != nil {
 		return err
 	}
 
+	// 2. Resolve template source directory
+	srcDir, err := configdir.ResolveTemplateDir(configDir, c.Template)
+	if err != nil {
+		return err
+	}
+
+	// 3. Build merged variables with priority: CLI args > template config > global config
+	mergedVars, err := c.buildVariables(configDir)
+	if err != nil {
+		return err
+	}
+
+	// 4. Execute stamper
 	stamper := stamp.New(mergedVars)
-	if err := stamper.Execute(c.Src, c.Dest); err != nil {
+	if err := stamper.Execute(srcDir, c.Dest); err != nil {
 		return fmt.Errorf("stamp failed: %w", err)
 	}
-	fmt.Fprintf(os.Stdout, "Successfully stamped from %s to %s\n", c.Src, c.Dest)
+
+	// 5. Print success message
+	fmt.Fprintf(os.Stdout, "Successfully stamped template '%s' to %s\n", c.Template, c.Dest)
 	return nil
 }
 
-// buildVariables implements three-level priority:
+// buildVariables implements four-level priority:
 // 1. CLI args (highest priority)
-// 2. Config file values
-// 3. Hardcoded defaults (lowest priority - handled by stamp.New)
-func (c *PressCmd) buildVariables() (map[string]string, error) {
-	mergedVars := make(map[string]string)
-
-	// Layer 1: Load config file if specified
-	if c.Config != "" {
-		configVars, err := config.Load(c.Config)
-		if err != nil {
-			return nil, fmt.Errorf("config file error: %w", err)
-		}
-		for k, v := range configVars {
-			mergedVars[k] = v
-		}
+// 2. Template-specific config
+// 3. Global config
+// 4. Hardcoded defaults (lowest priority - handled by stamp.New)
+func (c *PressCmd) buildVariables(configDir string) (map[string]string, error) {
+	// Load hierarchical configs: global + template-specific
+	mergedVars, err := config.LoadHierarchical(configDir, c.Template)
+	if err != nil {
+		return nil, fmt.Errorf("config error: %w", err)
 	}
 
-	// Layer 2: Override with CLI args (highest priority)
+	// Override with CLI args (highest priority)
 	for k, v := range c.Vars {
 		mergedVars[k] = v
 	}
@@ -61,7 +71,7 @@ func (c *PressCmd) buildVariables() (map[string]string, error) {
 
 type CLI struct {
 	Version kong.VersionFlag `help:"Show version"`
-	Press   PressCmd         `cmd:"press" help:"Copy directory structure with template expansion"`
+	Press   PressCmd         `cmd:"" default:"withargs" help:"Copy directory structure with template expansion"`
 }
 
 func NewCLI() *CLI {
