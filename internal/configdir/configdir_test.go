@@ -46,7 +46,7 @@ func TestGetConfigDir(t *testing.T) {
 				t.Errorf("GetConfigDir() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if !tt.wantErr && !strings.Contains(got, tt.wantContains) {
+			if !tt.wantErr && !strings.Contains(filepath.ToSlash(got), tt.wantContains) {
 				t.Errorf("GetConfigDir() = %v, want to contain %v", got, tt.wantContains)
 			}
 		})
@@ -112,7 +112,7 @@ func TestGetConfigDirWithOverride(t *testing.T) {
 					t.Errorf("GetConfigDirWithOverride() error = %v, want to contain %v", err, tt.errContains)
 				}
 			} else {
-				if !strings.Contains(got, tt.wantContains) {
+				if !strings.Contains(filepath.ToSlash(got), tt.wantContains) {
 					t.Errorf("GetConfigDirWithOverride() = %v, want to contain %v", got, tt.wantContains)
 				}
 			}
