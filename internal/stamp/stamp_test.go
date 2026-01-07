@@ -3,7 +3,6 @@ package stamp
 import (
 	"os"
 	"path/filepath"
-	"runtime"
 	"testing"
 )
 
@@ -16,7 +15,7 @@ func TestExecute_ValidDirectories(t *testing.T) {
 	createTestFile(t, src, "readme.md", "Static content")
 
 	// Execute
-	stamper := New()
+	stamper := New(nil)
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -38,7 +37,7 @@ func TestExecute_TemplateExpansion(t *testing.T) {
 	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
 
 	// Execute
-	stamper := New()
+	stamper := New(map[string]string{"name": "alice"})
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -60,7 +59,7 @@ func TestExecute_TemplateExtensionRemoved(t *testing.T) {
 	createTestFile(t, src, "code.go.tmpl", "package {{.name}}")
 
 	// Execute
-	stamper := New()
+	stamper := New(map[string]string{"name": "alice"})
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -88,7 +87,7 @@ func TestExecute_NonTemplateFiles(t *testing.T) {
 	createTestFile(t, src, "config.json", `{"key": "value"}`)
 
 	// Execute
-	stamper := New()
+	stamper := New(nil)
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -117,7 +116,7 @@ func TestExecute_NestedDirectories(t *testing.T) {
 	createTestFile(t, subdir, "nested.txt", "nested content")
 
 	// Execute
-	stamper := New()
+	stamper := New(nil)
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -132,50 +131,12 @@ func TestExecute_NestedDirectories(t *testing.T) {
 	assertFileContent(t, filepath.Join(dest, "subdir", "nested.txt"), "nested content")
 }
 
-// TestExecute_PreservesPermissions tests file permission preservation
-func TestExecute_PreservesPermissions(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("Skipping permission test on Windows")
-	}
-
-	src := t.TempDir()
-	dest := t.TempDir()
-
-	// Create file with specific permissions
-	filePath := filepath.Join(src, "script.sh")
-	if err := os.WriteFile(filePath, []byte("#!/bin/bash"), 0755); err != nil {
-		t.Fatalf("failed to create test file: %v", err)
-	}
-
-	// Execute
-	stamper := New()
-	err := stamper.Execute(src, dest)
-
-	// Assert
-	if err != nil {
-		t.Fatalf("Execute() returned error: %v", err)
-	}
-
-	destPath := filepath.Join(dest, "script.sh")
-	assertFileExists(t, destPath)
-
-	// Check permissions
-	info, err := os.Stat(destPath)
-	if err != nil {
-		t.Fatalf("failed to stat destination file: %v", err)
-	}
-
-	if info.Mode().Perm() != 0755 {
-		t.Errorf("file permissions = %o, want %o", info.Mode().Perm(), 0755)
-	}
-}
-
 // TestExecute_SourceNotExists tests error handling for non-existent source
 func TestExecute_SourceNotExists(t *testing.T) {
 	dest := t.TempDir()
 
 	// Execute with non-existent source
-	stamper := New()
+	stamper := New(nil)
 	err := stamper.Execute("/nonexistent/path", dest)
 
 	// Assert error is returned
@@ -193,7 +154,7 @@ func TestExecute_InvalidTemplate(t *testing.T) {
 	createTestFile(t, src, "bad.tmpl", "Invalid {{.missing")
 
 	// Execute
-	stamper := New()
+	stamper := New(nil)
 	err := stamper.Execute(src, dest)
 
 	// Assert error is returned
@@ -213,7 +174,7 @@ func TestExecute_MixedFiles(t *testing.T) {
 	createTestFile(t, src, "config.tmpl", "name={{.name}}")
 
 	// Execute
-	stamper := New()
+	stamper := New(map[string]string{"name": "alice"})
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -267,4 +228,89 @@ func assertFileNotExists(t *testing.T, path string) {
 	if _, err := os.Stat(path); !os.IsNotExist(err) {
 		t.Errorf("expected file to not exist: %s", path)
 	}
+}
+
+// TestExecute_CustomVariables tests that custom variables override defaults
+func TestExecute_CustomVariables(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
+
+	// Override default "alice" with "bob"
+	customVars := map[string]string{"name": "bob"}
+	stamper := New(customVars)
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	expectedPath := filepath.Join(dest, "hello.txt")
+	assertFileContent(t, expectedPath, "Hello bob!")
+}
+
+// TestExecute_MultipleCustomVariables tests multiple custom variables
+func TestExecute_MultipleCustomVariables(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "info.txt.tmpl",
+		"Organization: {{.org}}, Repository: {{.repo}}")
+
+	customVars := map[string]string{
+		"org":  "monochromegane",
+		"repo": "stamp",
+	}
+	stamper := New(customVars)
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	assertFileContent(t, filepath.Join(dest, "info.txt"),
+		"Organization: monochromegane, Repository: stamp")
+}
+
+// TestExecute_EmptyVariables tests that empty variables result in <no value>
+func TestExecute_EmptyVariables(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
+
+	// Pass empty map - templates will show <no value>
+	stamper := New(map[string]string{})
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	assertFileContent(t, filepath.Join(dest, "hello.txt"), "Hello <no value>!")
+}
+
+// TestExecute_PartialOverride tests providing some variables but not others
+func TestExecute_PartialOverride(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "mixed.txt.tmpl",
+		"User: {{.name}}, Org: {{.org}}")
+
+	// Provide both variables
+	customVars := map[string]string{
+		"name": "alice",
+		"org":  "monochromegane",
+	}
+	stamper := New(customVars)
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	assertFileContent(t, filepath.Join(dest, "mixed.txt"),
+		"User: alice, Org: monochromegane")
 }

@@ -11,12 +11,6 @@ import (
 // processTemplate reads a .tmpl file, expands it, and writes to destination
 // The .tmpl extension is removed from the output filename
 func (s *Stamper) processTemplate(srcPath, destPath string) error {
-	// Get source file info for permissions
-	srcInfo, err := os.Stat(srcPath)
-	if err != nil {
-		return fmt.Errorf("failed to stat template file: %w", err)
-	}
-
 	// Remove .tmpl extension from destination
 	destPath = removeTemplateExtension(destPath)
 
@@ -42,11 +36,6 @@ func (s *Stamper) processTemplate(srcPath, destPath string) error {
 	// Execute template
 	if err := tmpl.Execute(destFile, s.templateVars); err != nil {
 		return fmt.Errorf("failed to execute template: %w", err)
-	}
-
-	// Set permissions to match source
-	if err := os.Chmod(destPath, srcInfo.Mode()); err != nil {
-		return fmt.Errorf("failed to set permissions: %w", err)
 	}
 
 	return nil

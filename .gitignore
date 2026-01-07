@@ -2,4 +2,5 @@ CREDITS
 .env
 .env.*
 dist/
-./stamp
+stamp
+!stamp/
