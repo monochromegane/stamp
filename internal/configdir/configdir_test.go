@@ -112,7 +112,7 @@ func TestGetConfigDirWithOverride(t *testing.T) {
 					t.Errorf("GetConfigDirWithOverride() error = %v, want to contain %v", err, tt.errContains)
 				}
 			} else {
-				if !strings.Contains(filepath.ToSlash(got), tt.wantContains) {
+				if !strings.Contains(filepath.ToSlash(got), filepath.ToSlash(tt.wantContains)) {
 					t.Errorf("GetConfigDirWithOverride() = %v, want to contain %v", got, tt.wantContains)
 				}
 			}
