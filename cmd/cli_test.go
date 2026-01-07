@@ -40,7 +40,7 @@ func TestPressCmd_WithTemplateConfig(t *testing.T) {
 
 	// Execute CLI
 	cli := NewCLI()
-	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", configDir}
+	args := []string{"-t", "go-cli", "-d", destDir, "-c", configDir}
 	err := cli.Execute(args)
 
 	// Assert
@@ -95,7 +95,7 @@ org: template-org`
 
 	// Execute CLI
 	cli := NewCLI()
-	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", configDir}
+	args := []string{"-t", "go-cli", "-d", destDir, "-c", configDir}
 	err := cli.Execute(args)
 
 	// Assert
@@ -140,7 +140,7 @@ func TestPressCmd_CLIArgsOverrideConfig(t *testing.T) {
 
 	// Execute with CLI override: name=dave
 	cli := NewCLI()
-	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", configDir, "name=dave"}
+	args := []string{"-t", "go-cli", "-d", destDir, "-c", configDir, "name=dave"}
 	err := cli.Execute(args)
 
 	// Assert
@@ -179,7 +179,7 @@ func TestPressCmd_WithoutConfig(t *testing.T) {
 
 	// Execute with CLI variables only (no config files)
 	cli := NewCLI()
-	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", configDir, "name=frank"}
+	args := []string{"-t", "go-cli", "-d", destDir, "-c", configDir, "name=frank"}
 	err := cli.Execute(args)
 
 	// Assert
@@ -203,7 +203,7 @@ func TestPressCmd_InvalidConfigDirectory(t *testing.T) {
 
 	// Execute with non-existent config directory
 	cli := NewCLI()
-	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", "/nonexistent/config"}
+	args := []string{"-t", "go-cli", "-d", destDir, "-c", "/nonexistent/config"}
 	err := cli.Execute(args)
 
 	// Should fail
@@ -227,7 +227,7 @@ func TestPressCmd_InvalidTemplateName(t *testing.T) {
 
 	// Execute with non-existent template
 	cli := NewCLI()
-	args := []string{"press", "-t", "does-not-exist", "-d", destDir, "-c", configDir}
+	args := []string{"-t", "does-not-exist", "-d", destDir, "-c", configDir}
 	err := cli.Execute(args)
 
 	// Should fail
@@ -258,7 +258,7 @@ func TestPressCmd_MissingVariables(t *testing.T) {
 
 	// Execute without providing required variables
 	cli := NewCLI()
-	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", configDir}
+	args := []string{"-t", "go-cli", "-d", destDir, "-c", configDir}
 	err := cli.Execute(args)
 
 	// Assert - should fail with strict validation

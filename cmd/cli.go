@@ -14,7 +14,7 @@ const cmdName = "stamp"
 
 type PressCmd struct {
 	Template string            `required:"" help:"Template name from config directory" short:"t"`
-	Dest     string            `required:"" help:"Destination directory to copy to" short:"d"`
+	Dest     string            `optional:"" default:"." help:"Destination directory to copy to (default: current directory)" short:"d"`
 	Config   string            `optional:"" help:"Config directory path (overrides default)" short:"c"`
 	Vars     map[string]string `arg:"" optional:"" help:"Template variables in KEY=VALUE format"`
 }
@@ -71,7 +71,7 @@ func (c *PressCmd) buildVariables(configDir string) (map[string]string, error) {
 
 type CLI struct {
 	Version kong.VersionFlag `help:"Show version"`
-	Press   PressCmd         `cmd:"press" help:"Copy directory structure with template expansion"`
+	Press   PressCmd         `cmd:"" default:"withargs" help:"Copy directory structure with template expansion"`
 }
 
 func NewCLI() *CLI {
