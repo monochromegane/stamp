@@ -3,6 +3,7 @@ package stamp
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -273,22 +274,25 @@ func TestExecute_MultipleCustomVariables(t *testing.T) {
 		"Organization: monochromegane, Repository: stamp")
 }
 
-// TestExecute_EmptyVariables tests that empty variables result in <no value>
+// TestExecute_EmptyVariables tests that empty variables result in validation error
 func TestExecute_EmptyVariables(t *testing.T) {
 	src := t.TempDir()
 	dest := t.TempDir()
 
 	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
 
-	// Pass empty map - templates will show <no value>
+	// Pass empty map - should fail validation
 	stamper := New(map[string]string{})
 	err := stamper.Execute(src, dest)
 
-	if err != nil {
-		t.Fatalf("Execute() returned error: %v", err)
+	if err == nil {
+		t.Fatal("Execute() should fail when required variables are missing")
 	}
 
-	assertFileContent(t, filepath.Join(dest, "hello.txt"), "Hello <no value>!")
+	// Should mention the missing variable
+	if !strings.Contains(err.Error(), "name") {
+		t.Errorf("error should mention missing variable 'name', got: %v", err)
+	}
 }
 
 // TestExecute_PartialOverride tests providing some variables but not others
@@ -313,4 +317,78 @@ func TestExecute_PartialOverride(t *testing.T) {
 
 	assertFileContent(t, filepath.Join(dest, "mixed.txt"),
 		"User: alice, Org: monochromegane")
+}
+
+// TestExecute_StrictValidation tests that all variables must be provided
+func TestExecute_StrictValidation(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "hello.tmpl", "Hello {{.name}} from {{.org}}!")
+
+	// Only provide one of two required variables
+	stamper := New(map[string]string{"name": "alice"})
+	err := stamper.Execute(src, dest)
+
+	// Should fail validation
+	if err == nil {
+		t.Fatal("Execute() should fail when variables are missing")
+	}
+
+	// Should be a ValidationError
+	if validationErr, ok := err.(*ValidationError); !ok {
+		t.Errorf("error should be ValidationError, got: %T", err)
+	} else {
+		// Verify the missing variable is tracked
+		if _, exists := validationErr.MissingVars["org"]; !exists {
+			t.Errorf("ValidationError should track missing variable 'org'")
+		}
+	}
+}
+
+// TestExecute_ValidationInConditionals tests variables in conditionals are required
+func TestExecute_ValidationInConditionals(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "config.tmpl",
+		"{{if .debug}}Debug: {{.debugLevel}}{{end}}")
+
+	// Both variables in the if block should be required
+	stamper := New(map[string]string{})
+	err := stamper.Execute(src, dest)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when conditional variables are missing")
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "debug") {
+		t.Error("should require 'debug' variable")
+	}
+	if !strings.Contains(errMsg, "debugLevel") {
+		t.Error("should require 'debugLevel' variable")
+	}
+}
+
+// TestExecute_ValidationPassesWithAllVars tests successful validation
+func TestExecute_ValidationPassesWithAllVars(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "info.tmpl", "{{.name}} from {{.org}}")
+
+	// Provide all required variables
+	stamper := New(map[string]string{
+		"name": "alice",
+		"org":  "monochromegane",
+	})
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed when all variables are provided: %v", err)
+	}
+
+	assertFileContent(t, filepath.Join(dest, "info"),
+		"alice from monochromegane")
 }

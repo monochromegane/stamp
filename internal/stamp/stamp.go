@@ -36,6 +36,11 @@ func (s *Stamper) Execute(src, dest string) error {
 		return fmt.Errorf("source is not a directory: %s", src)
 	}
 
+	// Validate template variables before any processing
+	if err := s.validateTemplateVars(src); err != nil {
+		return err
+	}
+
 	// Create destination directory
 	if err := os.MkdirAll(dest, 0755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
