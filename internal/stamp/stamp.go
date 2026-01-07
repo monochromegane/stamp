@@ -36,6 +36,11 @@ func (s *Stamper) Execute(src, dest string) error {
 		return fmt.Errorf("source is not a directory: %s", src)
 	}
 
+	// Validate template variables before any processing
+	if err := s.validateTemplateVars(src); err != nil {
+		return err
+	}
+
 	// Create destination directory
 	if err := os.MkdirAll(dest, 0755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
@@ -66,8 +71,26 @@ func (s *Stamper) Execute(src, dest string) error {
 	})
 }
 
+// isTmplNoopFile checks if a file ends with .tmpl.noop
+func isTmplNoopFile(path string) bool {
+	return strings.HasSuffix(path, ".tmpl.noop")
+}
+
+// removeNoopExtension strips .noop from the end of a path
+func removeNoopExtension(path string) string {
+	if strings.HasSuffix(path, ".noop") {
+		return strings.TrimSuffix(path, ".noop")
+	}
+	return path
+}
+
 // processFile determines whether to template or copy a file
 func (s *Stamper) processFile(srcPath, destPath string) error {
+	// Check .tmpl.noop first (more specific)
+	if isTmplNoopFile(srcPath) {
+		return s.processTmplNoop(srcPath, destPath)
+	}
+
 	// Check if file ends with .tmpl
 	if strings.HasSuffix(srcPath, ".tmpl") {
 		return s.processTemplate(srcPath, destPath)
@@ -89,4 +112,14 @@ func (s *Stamper) copyFile(src, dest string) error {
 	}
 
 	return nil
+}
+
+// processTmplNoop copies a .tmpl.noop file, removing only the .noop extension
+// This allows template files to be included in output without variable expansion
+func (s *Stamper) processTmplNoop(srcPath, destPath string) error {
+	// Remove .noop extension from destination (keeping .tmpl)
+	destPath = removeNoopExtension(destPath)
+
+	// Copy file as-is without template processing
+	return s.copyFile(srcPath, destPath)
 }

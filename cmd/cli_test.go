@@ -3,6 +3,7 @@ package cmd
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -165,19 +166,16 @@ func TestPressCmd_WithoutConfig_BackwardCompatible(t *testing.T) {
 	args := []string{"press", "-s", srcDir, "-d", destDir}
 	err := cli.Execute(args)
 
-	// Assert
-	if err != nil {
-		t.Fatalf("Execute() failed: %v", err)
+	// Assert - should fail with strict validation
+	if err == nil {
+		t.Fatal("Execute() should fail when required variables are missing")
 	}
 
-	content, err := os.ReadFile(filepath.Join(destDir, "hello.txt"))
-	if err != nil {
-		t.Fatalf("failed to read result: %v", err)
+	// Error should mention the missing variable
+	if !strings.Contains(err.Error(), "name") {
+		t.Errorf("error should mention missing variable 'name', got: %v", err)
 	}
-
-	// Without config or CLI args, templates show <no value>
-	expected := "Hello <no value>!"
-	if string(content) != expected {
-		t.Errorf("content = %q, want %q (no variables provided)", string(content), expected)
+	if !strings.Contains(err.Error(), "missing required template variables") {
+		t.Errorf("error should indicate missing variables, got: %v", err)
 	}
 }

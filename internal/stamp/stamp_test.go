@@ -3,6 +3,7 @@ package stamp
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -273,22 +274,25 @@ func TestExecute_MultipleCustomVariables(t *testing.T) {
 		"Organization: monochromegane, Repository: stamp")
 }
 
-// TestExecute_EmptyVariables tests that empty variables result in <no value>
+// TestExecute_EmptyVariables tests that empty variables result in validation error
 func TestExecute_EmptyVariables(t *testing.T) {
 	src := t.TempDir()
 	dest := t.TempDir()
 
 	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
 
-	// Pass empty map - templates will show <no value>
+	// Pass empty map - should fail validation
 	stamper := New(map[string]string{})
 	err := stamper.Execute(src, dest)
 
-	if err != nil {
-		t.Fatalf("Execute() returned error: %v", err)
+	if err == nil {
+		t.Fatal("Execute() should fail when required variables are missing")
 	}
 
-	assertFileContent(t, filepath.Join(dest, "hello.txt"), "Hello <no value>!")
+	// Should mention the missing variable
+	if !strings.Contains(err.Error(), "name") {
+		t.Errorf("error should mention missing variable 'name', got: %v", err)
+	}
 }
 
 // TestExecute_PartialOverride tests providing some variables but not others
@@ -313,4 +317,227 @@ func TestExecute_PartialOverride(t *testing.T) {
 
 	assertFileContent(t, filepath.Join(dest, "mixed.txt"),
 		"User: alice, Org: monochromegane")
+}
+
+// TestExecute_StrictValidation tests that all variables must be provided
+func TestExecute_StrictValidation(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "hello.tmpl", "Hello {{.name}} from {{.org}}!")
+
+	// Only provide one of two required variables
+	stamper := New(map[string]string{"name": "alice"})
+	err := stamper.Execute(src, dest)
+
+	// Should fail validation
+	if err == nil {
+		t.Fatal("Execute() should fail when variables are missing")
+	}
+
+	// Should be a ValidationError
+	if validationErr, ok := err.(*ValidationError); !ok {
+		t.Errorf("error should be ValidationError, got: %T", err)
+	} else {
+		// Verify the missing variable is tracked
+		if _, exists := validationErr.MissingVars["org"]; !exists {
+			t.Errorf("ValidationError should track missing variable 'org'")
+		}
+	}
+}
+
+// TestExecute_ValidationInConditionals tests variables in conditionals are required
+func TestExecute_ValidationInConditionals(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "config.tmpl",
+		"{{if .debug}}Debug: {{.debugLevel}}{{end}}")
+
+	// Both variables in the if block should be required
+	stamper := New(map[string]string{})
+	err := stamper.Execute(src, dest)
+
+	if err == nil {
+		t.Fatal("Execute() should fail when conditional variables are missing")
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "debug") {
+		t.Error("should require 'debug' variable")
+	}
+	if !strings.Contains(errMsg, "debugLevel") {
+		t.Error("should require 'debugLevel' variable")
+	}
+}
+
+// TestExecute_ValidationPassesWithAllVars tests successful validation
+func TestExecute_ValidationPassesWithAllVars(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "info.tmpl", "{{.name}} from {{.org}}")
+
+	// Provide all required variables
+	stamper := New(map[string]string{
+		"name": "alice",
+		"org":  "monochromegane",
+	})
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() should succeed when all variables are provided: %v", err)
+	}
+
+	assertFileContent(t, filepath.Join(dest, "info"),
+		"alice from monochromegane")
+}
+
+// TestExecute_TmplNoopFiles tests .tmpl.noop files are copied without expansion
+func TestExecute_TmplNoopFiles(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create a .tmpl.noop file with template syntax
+	createTestFile(t, src, "config.yaml.tmpl.noop", "name: {{.name}}\norg: {{.org}}")
+
+	// Execute WITHOUT providing variables
+	stamper := New(map[string]string{})
+	err := stamper.Execute(src, dest)
+
+	// Assert success (no validation error)
+	if err != nil {
+		t.Fatalf("Execute() should succeed for .tmpl.noop files: %v", err)
+	}
+
+	// Verify file was copied with .noop removed, .tmpl kept
+	expectedPath := filepath.Join(dest, "config.yaml.tmpl")
+	assertFileExists(t, expectedPath)
+
+	// Verify content was NOT expanded (still has template syntax)
+	assertFileContent(t, expectedPath, "name: {{.name}}\norg: {{.org}}")
+}
+
+// TestExecute_TmplNoopExtensionRemoval tests only .noop is removed
+func TestExecute_TmplNoopExtensionRemoval(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "example.yaml.tmpl.noop", "content: {{.value}}")
+
+	stamper := New(map[string]string{})
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	// Should exist as .yaml.tmpl (not .yaml or .yaml.tmpl.noop)
+	expectedPath := filepath.Join(dest, "example.yaml.tmpl")
+	assertFileExists(t, expectedPath)
+
+	// Should NOT exist without .tmpl
+	unexpectedPath1 := filepath.Join(dest, "example.yaml")
+	assertFileNotExists(t, unexpectedPath1)
+
+	// Should NOT exist with .noop still present
+	unexpectedPath2 := filepath.Join(dest, "example.yaml.tmpl.noop")
+	assertFileNotExists(t, unexpectedPath2)
+}
+
+// TestExecute_MixedTmplAndTmplNoop tests .tmpl and .tmpl.noop together
+func TestExecute_MixedTmplAndTmplNoop(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create both types
+	createTestFile(t, src, "active.yaml.tmpl", "name: {{.name}}")
+	createTestFile(t, src, "template.yaml.tmpl.noop", "name: {{.name}}")
+
+	// Execute with required variable for .tmpl file
+	stamper := New(map[string]string{"name": "alice"})
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	// .tmpl file should be expanded
+	assertFileExists(t, filepath.Join(dest, "active.yaml"))
+	assertFileContent(t, filepath.Join(dest, "active.yaml"), "name: alice")
+
+	// .tmpl.noop file should NOT be expanded
+	assertFileExists(t, filepath.Join(dest, "template.yaml.tmpl"))
+	assertFileContent(t, filepath.Join(dest, "template.yaml.tmpl"), "name: {{.name}}")
+}
+
+// TestExecute_TmplNoopNoValidation tests .tmpl.noop skips validation
+func TestExecute_TmplNoopNoValidation(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create .tmpl.noop with undefined variables
+	createTestFile(t, src, "example.tmpl.noop",
+		"{{.undefined}} {{.missing}} {{.notProvided}}")
+
+	// Execute without any variables
+	stamper := New(map[string]string{})
+	err := stamper.Execute(src, dest)
+
+	// Should succeed - no validation for .tmpl.noop
+	if err != nil {
+		t.Fatalf("Execute() should succeed for .tmpl.noop: %v", err)
+	}
+
+	// Content should be unchanged
+	expectedPath := filepath.Join(dest, "example.tmpl")
+	assertFileContent(t, expectedPath,
+		"{{.undefined}} {{.missing}} {{.notProvided}}")
+}
+
+// TestExecute_TmplNoopInSubdirectory tests nested .tmpl.noop files
+func TestExecute_TmplNoopInSubdirectory(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create nested structure
+	subdir := filepath.Join(src, "templates")
+	os.MkdirAll(subdir, 0755)
+	createTestFile(t, subdir, "nested.tmpl.noop", "{{.var}}")
+
+	stamper := New(map[string]string{})
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	// Verify nested file processed correctly
+	assertFileExists(t, filepath.Join(dest, "templates", "nested.tmpl"))
+	assertFileContent(t, filepath.Join(dest, "templates", "nested.tmpl"), "{{.var}}")
+}
+
+// TestExecute_ComplexMixedScenario tests all file types together
+func TestExecute_ComplexMixedScenario(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create mix of file types
+	createTestFile(t, src, "expanded.yaml.tmpl", "name: {{.name}}")
+	createTestFile(t, src, "template.yaml.tmpl.noop", "name: {{.example}}")
+	createTestFile(t, src, "static.txt", "static content")
+	createTestFile(t, src, "readme.md", "# Readme")
+
+	stamper := New(map[string]string{"name": "alice"})
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	// Verify each type processed correctly
+	assertFileContent(t, filepath.Join(dest, "expanded.yaml"), "name: alice")
+	assertFileContent(t, filepath.Join(dest, "template.yaml.tmpl"), "name: {{.example}}")
+	assertFileContent(t, filepath.Join(dest, "static.txt"), "static content")
+	assertFileContent(t, filepath.Join(dest, "readme.md"), "# Readme")
 }
