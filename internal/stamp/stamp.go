@@ -27,26 +27,48 @@ func New(vars map[string]string) *Stamper {
 // Execute performs the directory copy operation
 // It walks the source directory tree and processes each file
 func (s *Stamper) Execute(src, dest string) error {
-	// Validate source exists
-	srcInfo, err := os.Stat(src)
-	if err != nil {
-		return fmt.Errorf("source directory error: %w", err)
-	}
-	if !srcInfo.IsDir() {
-		return fmt.Errorf("source is not a directory: %s", src)
+	return s.ExecuteMultiple([]string{src}, dest)
+}
+
+// ExecuteMultiple processes multiple template directories sequentially
+// Later templates overwrite files from earlier templates
+func (s *Stamper) ExecuteMultiple(srcDirs []string, dest string) error {
+	if len(srcDirs) == 0 {
+		return fmt.Errorf("no source directories provided")
 	}
 
-	// Validate template variables before any processing
-	if err := s.validateTemplateVars(src); err != nil {
+	// Pre-validate ALL template variables across all templates
+	if err := s.validateMultipleTemplateVars(srcDirs); err != nil {
 		return err
 	}
 
-	// Create destination directory
+	// Create destination directory once
 	if err := os.MkdirAll(dest, 0755); err != nil {
 		return fmt.Errorf("failed to create destination directory: %w", err)
 	}
 
-	// Walk source directory
+	// Process each template sequentially
+	for i, src := range srcDirs {
+		// Validate source exists
+		srcInfo, err := os.Stat(src)
+		if err != nil {
+			return fmt.Errorf("source directory error (template %d): %w", i+1, err)
+		}
+		if !srcInfo.IsDir() {
+			return fmt.Errorf("source is not a directory (template %d): %s", i+1, src)
+		}
+
+		// Walk and process this template directory
+		if err := s.processTemplateDir(src, dest); err != nil {
+			return fmt.Errorf("failed to process template %d (%s): %w", i+1, src, err)
+		}
+	}
+
+	return nil
+}
+
+// processTemplateDir walks a single template directory and processes files
+func (s *Stamper) processTemplateDir(src, dest string) error {
 	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
