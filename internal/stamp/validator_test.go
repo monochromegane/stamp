@@ -388,3 +388,59 @@ func assertVarsEqual(t *testing.T, got, want []string) {
 		}
 	}
 }
+
+// TestValidateTemplateVars_SkipsTmplNoopFiles tests .tmpl.noop files are ignored
+func TestValidateTemplateVars_SkipsTmplNoopFiles(t *testing.T) {
+	src := t.TempDir()
+
+	// Create .tmpl.noop file with undefined variables
+	createTestFile(t, src, "example.tmpl.noop", "{{.undefined}}")
+
+	// Should pass validation without providing variables
+	stamper := New(map[string]string{})
+	err := stamper.validateTemplateVars(src)
+
+	if err != nil {
+		t.Errorf("validateTemplateVars() should skip .tmpl.noop files, got error: %v", err)
+	}
+}
+
+// TestValidateTemplateVars_TmplAndTmplNoop tests both file types
+func TestValidateTemplateVars_TmplAndTmplNoop(t *testing.T) {
+	src := t.TempDir()
+
+	createTestFile(t, src, "active.tmpl", "{{.name}}")
+	createTestFile(t, src, "inactive.tmpl.noop", "{{.undefined}}")
+
+	// Should fail only for .tmpl file
+	stamper := New(map[string]string{})
+	err := stamper.validateTemplateVars(src)
+
+	if err == nil {
+		t.Fatal("validateTemplateVars() should fail for .tmpl file")
+	}
+
+	errMsg := err.Error()
+	if !strings.Contains(errMsg, "name") {
+		t.Errorf("error should mention missing 'name' variable, got: %v", err)
+	}
+	if strings.Contains(errMsg, "undefined") {
+		t.Errorf("error should NOT mention 'undefined' from .tmpl.noop file, got: %v", err)
+	}
+}
+
+// TestValidateTemplateVars_OnlyTmplNoop tests directory with only .tmpl.noop
+func TestValidateTemplateVars_OnlyTmplNoop(t *testing.T) {
+	src := t.TempDir()
+
+	createTestFile(t, src, "file1.tmpl.noop", "{{.var1}}")
+	createTestFile(t, src, "file2.tmpl.noop", "{{.var2}}")
+
+	// Should pass - no .tmpl files to validate
+	stamper := New(map[string]string{})
+	err := stamper.validateTemplateVars(src)
+
+	if err != nil {
+		t.Errorf("validateTemplateVars() should pass with only .tmpl.noop files, got: %v", err)
+	}
+}

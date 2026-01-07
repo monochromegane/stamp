@@ -60,7 +60,19 @@ func (s *Stamper) validateTemplateVars(srcDir string) error {
 		if err != nil {
 			return err
 		}
-		if info.IsDir() || !strings.HasSuffix(path, ".tmpl") {
+
+		// Skip directories
+		if info.IsDir() {
+			return nil
+		}
+
+		// Skip .tmpl.noop files (they don't undergo template expansion)
+		if isTmplNoopFile(path) {
+			return nil
+		}
+
+		// Process only .tmpl files
+		if !strings.HasSuffix(path, ".tmpl") {
 			return nil
 		}
 
