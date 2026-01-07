@@ -14,20 +14,25 @@ func TestNewCLI(t *testing.T) {
 	}
 }
 
-func TestPressCmd_WithConfigFile(t *testing.T) {
-	// Setup
-	srcDir := t.TempDir()
-	destDir := t.TempDir()
+func TestPressCmd_WithTemplateConfig(t *testing.T) {
+	// Setup config directory structure
 	configDir := t.TempDir()
+	destDir := t.TempDir()
+
+	// Create template directory structure
+	templateDir := filepath.Join(configDir, "templates", "go-cli")
+	if err := os.MkdirAll(templateDir, 0755); err != nil {
+		t.Fatalf("failed to create template dir: %v", err)
+	}
 
 	// Create template file
-	tmplPath := filepath.Join(srcDir, "hello.txt.tmpl")
+	tmplPath := filepath.Join(templateDir, "hello.txt.tmpl")
 	if err := os.WriteFile(tmplPath, []byte("Hello {{.name}}!"), 0644); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 
-	// Create config file
-	configPath := filepath.Join(configDir, "config.yaml")
+	// Create template-specific config
+	configPath := filepath.Join(templateDir, "stamp.yaml")
 	configContent := `name: charlie`
 	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to create config: %v", err)
@@ -35,7 +40,7 @@ func TestPressCmd_WithConfigFile(t *testing.T) {
 
 	// Execute CLI
 	cli := NewCLI()
-	args := []string{"press", "-s", srcDir, "-d", destDir, "-c", configPath}
+	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", configDir}
 	err := cli.Execute(args)
 
 	// Assert
@@ -55,27 +60,87 @@ func TestPressCmd_WithConfigFile(t *testing.T) {
 	}
 }
 
-func TestPressCmd_CLIArgsOverrideConfig(t *testing.T) {
-	// Setup
-	srcDir := t.TempDir()
-	destDir := t.TempDir()
+func TestPressCmd_HierarchicalConfig(t *testing.T) {
+	// Setup config directory structure
 	configDir := t.TempDir()
+	destDir := t.TempDir()
+
+	// Create template directory
+	templateDir := filepath.Join(configDir, "templates", "go-cli")
+	if err := os.MkdirAll(templateDir, 0755); err != nil {
+		t.Fatalf("failed to create template dir: %v", err)
+	}
+
+	// Create template file
+	tmplPath := filepath.Join(templateDir, "hello.txt.tmpl")
+	if err := os.WriteFile(tmplPath, []byte("Hello {{.name}} from {{.org}}!"), 0644); err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+
+	// Create global config
+	globalConfigPath := filepath.Join(configDir, "stamp.yaml")
+	globalConfig := `org: global-org
+author: alice`
+	if err := os.WriteFile(globalConfigPath, []byte(globalConfig), 0644); err != nil {
+		t.Fatalf("failed to create global config: %v", err)
+	}
+
+	// Create template-specific config (overrides org)
+	templateConfigPath := filepath.Join(templateDir, "stamp.yaml")
+	templateConfig := `name: bob
+org: template-org`
+	if err := os.WriteFile(templateConfigPath, []byte(templateConfig), 0644); err != nil {
+		t.Fatalf("failed to create template config: %v", err)
+	}
+
+	// Execute CLI
+	cli := NewCLI()
+	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", configDir}
+	err := cli.Execute(args)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(destDir, "hello.txt"))
+	if err != nil {
+		t.Fatalf("failed to read result: %v", err)
+	}
+
+	// Template config should override global (org=template-org, not global-org)
+	expected := "Hello bob from template-org!"
+	if string(content) != expected {
+		t.Errorf("content = %q, want %q (template config should override global)", string(content), expected)
+	}
+}
+
+func TestPressCmd_CLIArgsOverrideConfig(t *testing.T) {
+	// Setup config directory structure
+	configDir := t.TempDir()
+	destDir := t.TempDir()
+
+	// Create template directory
+	templateDir := filepath.Join(configDir, "templates", "go-cli")
+	if err := os.MkdirAll(templateDir, 0755); err != nil {
+		t.Fatalf("failed to create template dir: %v", err)
+	}
 
 	// Create template
-	tmplPath := filepath.Join(srcDir, "hello.txt.tmpl")
+	tmplPath := filepath.Join(templateDir, "hello.txt.tmpl")
 	if err := os.WriteFile(tmplPath, []byte("Hello {{.name}}!"), 0644); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 
 	// Create config with name=charlie
-	configPath := filepath.Join(configDir, "config.yaml")
+	configPath := filepath.Join(templateDir, "stamp.yaml")
 	if err := os.WriteFile(configPath, []byte("name: charlie\n"), 0644); err != nil {
 		t.Fatalf("failed to create config: %v", err)
 	}
 
 	// Execute with CLI override: name=dave
 	cli := NewCLI()
-	args := []string{"press", "-s", srcDir, "-d", destDir, "-c", configPath, "name=dave"}
+	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", configDir, "name=dave"}
 	err := cli.Execute(args)
 
 	// Assert
@@ -95,27 +160,26 @@ func TestPressCmd_CLIArgsOverrideConfig(t *testing.T) {
 	}
 }
 
-func TestPressCmd_ConfigOverridesDefaults(t *testing.T) {
-	// Setup
-	srcDir := t.TempDir()
-	destDir := t.TempDir()
+func TestPressCmd_WithoutConfig(t *testing.T) {
+	// Setup config directory structure (no config files)
 	configDir := t.TempDir()
+	destDir := t.TempDir()
+
+	// Create template directory
+	templateDir := filepath.Join(configDir, "templates", "go-cli")
+	if err := os.MkdirAll(templateDir, 0755); err != nil {
+		t.Fatalf("failed to create template dir: %v", err)
+	}
 
 	// Create template
-	tmplPath := filepath.Join(srcDir, "hello.txt.tmpl")
+	tmplPath := filepath.Join(templateDir, "hello.txt.tmpl")
 	if err := os.WriteFile(tmplPath, []byte("Hello {{.name}}!"), 0644); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 
-	// Create config
-	configPath := filepath.Join(configDir, "config.yaml")
-	if err := os.WriteFile(configPath, []byte("name: eve\n"), 0644); err != nil {
-		t.Fatalf("failed to create config: %v", err)
-	}
-
-	// Execute with config only (no CLI args)
+	// Execute with CLI variables only (no config files)
 	cli := NewCLI()
-	args := []string{"press", "-s", srcDir, "-d", destDir, "-c", configPath}
+	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", configDir, "name=frank"}
 	err := cli.Execute(args)
 
 	// Assert
@@ -128,42 +192,73 @@ func TestPressCmd_ConfigOverridesDefaults(t *testing.T) {
 		t.Fatalf("failed to read result: %v", err)
 	}
 
-	// Config should override default "alice"
-	expected := "Hello eve!"
+	expected := "Hello frank!"
 	if string(content) != expected {
-		t.Errorf("content = %q, want %q (config should override default)", string(content), expected)
+		t.Errorf("content = %q, want %q", string(content), expected)
 	}
 }
 
-func TestPressCmd_InvalidConfigFile(t *testing.T) {
-	srcDir := t.TempDir()
+func TestPressCmd_InvalidConfigDirectory(t *testing.T) {
 	destDir := t.TempDir()
 
-	// Execute with non-existent config
+	// Execute with non-existent config directory
 	cli := NewCLI()
-	args := []string{"press", "-s", srcDir, "-d", destDir, "-c", "/nonexistent/config.yaml"}
+	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", "/nonexistent/config"}
 	err := cli.Execute(args)
 
 	// Should fail
 	if err == nil {
-		t.Fatal("Execute() should fail with non-existent config file")
+		t.Fatal("Execute() should fail with non-existent config directory")
+	}
+	if !strings.Contains(err.Error(), "config directory not found") {
+		t.Errorf("error should mention config directory not found, got: %v", err)
 	}
 }
 
-func TestPressCmd_WithoutConfig_BackwardCompatible(t *testing.T) {
-	// Setup
-	srcDir := t.TempDir()
+func TestPressCmd_InvalidTemplateName(t *testing.T) {
+	configDir := t.TempDir()
 	destDir := t.TempDir()
 
-	// Create template
-	tmplPath := filepath.Join(srcDir, "hello.txt.tmpl")
+	// Create templates directory but no templates
+	templatesDir := filepath.Join(configDir, "templates")
+	if err := os.MkdirAll(templatesDir, 0755); err != nil {
+		t.Fatalf("failed to create templates dir: %v", err)
+	}
+
+	// Execute with non-existent template
+	cli := NewCLI()
+	args := []string{"press", "-t", "does-not-exist", "-d", destDir, "-c", configDir}
+	err := cli.Execute(args)
+
+	// Should fail
+	if err == nil {
+		t.Fatal("Execute() should fail with non-existent template")
+	}
+	if !strings.Contains(err.Error(), "template 'does-not-exist' not found") {
+		t.Errorf("error should mention template not found, got: %v", err)
+	}
+}
+
+func TestPressCmd_MissingVariables(t *testing.T) {
+	// Setup config directory structure (no config files)
+	configDir := t.TempDir()
+	destDir := t.TempDir()
+
+	// Create template directory
+	templateDir := filepath.Join(configDir, "templates", "go-cli")
+	if err := os.MkdirAll(templateDir, 0755); err != nil {
+		t.Fatalf("failed to create template dir: %v", err)
+	}
+
+	// Create template with required variable
+	tmplPath := filepath.Join(templateDir, "hello.txt.tmpl")
 	if err := os.WriteFile(tmplPath, []byte("Hello {{.name}}!"), 0644); err != nil {
 		t.Fatalf("failed to create template: %v", err)
 	}
 
-	// Execute without config and without variables
+	// Execute without providing required variables
 	cli := NewCLI()
-	args := []string{"press", "-s", srcDir, "-d", destDir}
+	args := []string{"press", "-t", "go-cli", "-d", destDir, "-c", configDir}
 	err := cli.Execute(args)
 
 	// Assert - should fail with strict validation
