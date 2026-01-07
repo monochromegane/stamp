@@ -160,7 +160,7 @@ func TestPressCmd_WithoutConfig_BackwardCompatible(t *testing.T) {
 		t.Fatalf("failed to create template: %v", err)
 	}
 
-	// Execute without config (old behavior)
+	// Execute without config and without variables
 	cli := NewCLI()
 	args := []string{"press", "-s", srcDir, "-d", destDir}
 	err := cli.Execute(args)
@@ -175,9 +175,9 @@ func TestPressCmd_WithoutConfig_BackwardCompatible(t *testing.T) {
 		t.Fatalf("failed to read result: %v", err)
 	}
 
-	// Should use default "alice"
-	expected := "Hello alice!"
+	// Without config or CLI args, templates show <no value>
+	expected := "Hello <no value>!"
 	if string(content) != expected {
-		t.Errorf("content = %q, want %q (default without config)", string(content), expected)
+		t.Errorf("content = %q, want %q (no variables provided)", string(content), expected)
 	}
 }

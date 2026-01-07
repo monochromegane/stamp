@@ -37,7 +37,7 @@ func TestExecute_TemplateExpansion(t *testing.T) {
 	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
 
 	// Execute
-	stamper := New(nil)
+	stamper := New(map[string]string{"name": "alice"})
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -59,7 +59,7 @@ func TestExecute_TemplateExtensionRemoved(t *testing.T) {
 	createTestFile(t, src, "code.go.tmpl", "package {{.name}}")
 
 	// Execute
-	stamper := New(nil)
+	stamper := New(map[string]string{"name": "alice"})
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -174,7 +174,7 @@ func TestExecute_MixedFiles(t *testing.T) {
 	createTestFile(t, src, "config.tmpl", "name={{.name}}")
 
 	// Execute
-	stamper := New(nil)
+	stamper := New(map[string]string{"name": "alice"})
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -273,14 +273,14 @@ func TestExecute_MultipleCustomVariables(t *testing.T) {
 		"Organization: monochromegane, Repository: stamp")
 }
 
-// TestExecute_EmptyVariables tests that empty variables fall back to defaults
+// TestExecute_EmptyVariables tests that empty variables result in <no value>
 func TestExecute_EmptyVariables(t *testing.T) {
 	src := t.TempDir()
 	dest := t.TempDir()
 
 	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
 
-	// Pass empty map - should use defaults
+	// Pass empty map - templates will show <no value>
 	stamper := New(map[string]string{})
 	err := stamper.Execute(src, dest)
 
@@ -288,10 +288,10 @@ func TestExecute_EmptyVariables(t *testing.T) {
 		t.Fatalf("Execute() returned error: %v", err)
 	}
 
-	assertFileContent(t, filepath.Join(dest, "hello.txt"), "Hello alice!")
+	assertFileContent(t, filepath.Join(dest, "hello.txt"), "Hello <no value>!")
 }
 
-// TestExecute_PartialOverride tests that some variables override, others use defaults
+// TestExecute_PartialOverride tests providing some variables but not others
 func TestExecute_PartialOverride(t *testing.T) {
 	src := t.TempDir()
 	dest := t.TempDir()
@@ -299,8 +299,11 @@ func TestExecute_PartialOverride(t *testing.T) {
 	createTestFile(t, src, "mixed.txt.tmpl",
 		"User: {{.name}}, Org: {{.org}}")
 
-	// Only override org, keep default name
-	customVars := map[string]string{"org": "monochromegane"}
+	// Provide both variables
+	customVars := map[string]string{
+		"name": "alice",
+		"org":  "monochromegane",
+	}
 	stamper := New(customVars)
 	err := stamper.Execute(src, dest)
 
