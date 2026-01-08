@@ -297,9 +297,9 @@ func TestConfigDirCmd_DefaultPath(t *testing.T) {
 	io.Copy(&buf, r)
 	output := buf.String()
 
-	// Verify output is a valid path ending with /stamp
-	if !strings.HasSuffix(strings.TrimSpace(output), "/stamp") {
-		t.Errorf("output = %q, want path ending with /stamp", output)
+	// Verify output is a valid path ending with stamp
+	if filepath.Base(strings.TrimSpace(output)) != "stamp" {
+		t.Errorf("output = %q, want path ending with stamp", output)
 	}
 
 	// Verify it's an absolute path
