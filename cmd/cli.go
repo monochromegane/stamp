@@ -95,9 +95,24 @@ func (c *PressCmd) buildVariablesForMultipleTemplates(configDir string) (map[str
 	return mergedVars, nil
 }
 
+type ConfigDirCmd struct {
+	Config string `optional:"" help:"Config directory path (overrides default)" short:"c"`
+}
+
+func (c *ConfigDirCmd) Run(ctx *kong.Context) error {
+	configDir, err := configdir.GetConfigDirWithOverride(c.Config)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(os.Stdout, "%s\n", configDir)
+	return nil
+}
+
 type CLI struct {
-	Version kong.VersionFlag `help:"Show version"`
-	Press   PressCmd         `cmd:"" default:"withargs" help:"Copy directory structure with template expansion"`
+	Version   kong.VersionFlag `help:"Show version"`
+	Press     PressCmd         `cmd:"" default:"withargs" help:"Copy directory structure with template expansion"`
+	ConfigDir ConfigDirCmd     `cmd:"" help:"Print config directory path"`
 }
 
 func NewCLI() *CLI {

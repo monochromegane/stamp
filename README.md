@@ -10,65 +10,124 @@ A CLI tool for copying directory structures with Go template expansion.
 
 - Copy directories with automatic template variable expansion
 - Support for `.tmpl` files with Go template syntax
-- YAML config file support for default variable values
+- Config directory with XDG Base Directory support
+- Hierarchical configuration (global + template-specific)
+- Multiple template directories with layered application
+- YAML config file support for variable values
 - Command-line variable overrides with priority system
+- Strict template variable validation
+- Support for `.tmpl.noop` files (copy templates without expansion)
 - Simple key-value variable format
+
+## Installation
+
+## Quick Start
+
+1. Create config directory and a template:
+   ```bash
+   mkdir -p "$(stamp config-dir)/templates/my-app"
+   echo "Hello {{.name}}!" > "$(stamp config-dir)/templates/my-app/hello.txt.tmpl"
+   ```
+
+2. Use the template:
+   ```bash
+   stamp -t my-app name=alice
+   ```
+
+3. Check the result:
+   ```bash
+   cat hello.txt  # Output: Hello alice!
+   ```
 
 ## Usage
 
-### Basic Usage
+### Config Directory Setup
 
+stamp uses a centralized config directory to store templates and configurations.
+
+**Default Location:**
+- `$XDG_CONFIG_HOME/stamp` (if XDG_CONFIG_HOME is set)
+- Platform-specific default (use `stamp config-dir` to see your path)
+  - Linux: `$HOME/.config/stamp`
+  - macOS: `$HOME/Library/Application Support/stamp`
+  - Windows: `%AppData%\stamp`
+
+**Checking your config directory:**
 ```bash
-# Copy directory with default variables
-stamp press -s ./source -d ./destination
-
-# Provide variables via command line
-stamp press -s ./source -d ./destination name=bob org=acme
-
-# Use config file for default variables
-stamp press -s ./source -d ./destination -c config.yaml
-
-# Override config file values with command-line arguments
-stamp press -s ./source -d ./destination -c config.yaml name=charlie
+stamp config-dir
 ```
 
-### Config File Format
+**Directory Structure:**
 
-Create a YAML file with flat key-value pairs:
+```
+$(stamp config-dir)/
+├── stamp.yaml                    # Global config (optional)
+└── templates/
+    ├── go-cli/
+    │   ├── main.go.tmpl
+    │   ├── README.md.tmpl
+    │   └── stamp.yaml            # Template-specific config (optional)
+    └── web-app/
+        ├── index.html.tmpl
+        └── stamp.yaml
+```
+
+Note: Run `stamp config-dir` to see your actual config directory path.
+
+**Creating Templates:**
+
+```bash
+# Create a new template directory
+mkdir -p "$(stamp config-dir)/templates/my-template"
+
+# Add template files
+echo "{{.message}}" > "$(stamp config-dir)/templates/my-template/output.txt.tmpl"
+
+# (Optional) Add template-specific config
+cat > "$(stamp config-dir)/templates/my-template/stamp.yaml" << EOF
+message: "Default message"
+version: "1.0.0"
+EOF
+```
+
+**Global Config Format:**
+
+Create a YAML file at `$(stamp config-dir)/stamp.yaml` with flat key-value pairs:
 
 ```yaml
-# config.yaml
+# stamp.yaml
 name: alice
 org: example
 repo: myproject
 version: 1.0.0
 ```
 
-Use the config file with the `-c` or `--config` flag:
+### Basic Usage
+
+**Note:** The `press` subcommand is now the default, so you can omit it.
 
 ```bash
-stamp press -s ./template -d ./output -c config.yaml
+# Use a template from config directory (destination defaults to current directory)
+stamp -t my-template name=alice
+
+# Specify destination directory
+stamp -t my-template -d ./output name=alice org=acme
+
+# Use multiple templates (applied sequentially)
+stamp -t base -t go-cli -d ./myproject name=bob
+
+# Override config directory
+stamp -t my-template -d ./output -c /custom/config/dir name=charlie
 ```
 
-### Variable Priority
-
-Variables are merged with the following priority (highest to lowest):
-
-1. **Command-line arguments** - Variables specified as `key=value` on the command line
-2. **Config file** - Variables defined in the YAML config file (via `-c` flag)
-3. **Hardcoded defaults** - Built-in default values (currently `name: "alice"`)
-
-Example:
+**Old syntax (still works):**
 ```bash
-# config.yaml has name=bob
-# Command line specifies name=charlie
-# Result: name will be "charlie" (CLI overrides config)
-stamp press -s ./src -d ./dest -c config.yaml name=charlie
+stamp press -t my-template -d ./output name=alice
 ```
 
 ### Template Files
 
-Files ending with `.tmpl` are processed as Go templates. The `.tmpl` extension is removed from the output filename.
+**`.tmpl` files** are processed as Go templates. The `.tmpl` extension is removed from the output filename.
 
 Example template file `hello.txt.tmpl`:
 ```
@@ -82,9 +141,123 @@ Hello alice from example!
 Welcome to the myproject project.
 ```
 
-Regular files (without `.tmpl` extension) are copied as-is without template processing.
+**`.tmpl.noop` files** are copied without variable expansion, with only `.noop` removed.
 
-## Install
+Example use case - distributing template files:
+```
+Input:  config.yaml.tmpl.noop   (content: "name: {{.name}}")
+Output: config.yaml.tmpl        (content: "name: {{.name}}" - not expanded)
+```
+
+This is useful when you want to distribute template files themselves rather than expanded content.
+
+**Regular files** (without `.tmpl` extension) are copied as-is without template processing.
+
+### Variable Priority
+
+Variables are merged with the following priority (highest to lowest):
+
+1. **Command-line arguments** - Variables specified as `key=value` on the command line
+2. **Template-specific configs** - Variables defined in `templates/{name}/stamp.yaml` (when using multiple templates, later templates override earlier ones)
+3. **Global config** - Variables defined in `stamp.yaml` in the config directory
+
+**Example with multiple templates:**
+```bash
+# Global config: org=global-org
+# templates/base/stamp.yaml: name=alice, version=1.0
+# templates/go-cli/stamp.yaml: name=bob
+# CLI args: name=charlie
+
+stamp -t base -t go-cli name=charlie
+
+# Result:
+# name=charlie (from CLI - highest priority)
+# version=1.0 (from base template)
+# org=global-org (from global config - lowest priority)
+```
+
+**Example with config file override:**
+```bash
+# config.yaml in base template has name=alice
+# Command line specifies name=charlie
+# Result: name will be "charlie" (CLI overrides config)
+stamp -t base -d ./dest name=charlie
+```
+
+### Advanced Features
+
+#### Multiple Templates
+
+You can apply multiple templates sequentially, with later templates overwriting files from earlier ones:
+
+```bash
+stamp -t base -t backend -t frontend -d ./myapp name=alice
+```
+
+**How it works:**
+1. All templates are resolved and validated upfront
+2. Variables are merged: CLI args > frontend config > backend config > base config > global config
+3. Templates are applied in order: base → backend → frontend
+4. If multiple templates contain the same file, the last one wins
+
+**Use cases:**
+- Layering: Start with a base template, add specialized features
+- Composition: Combine independent components (backend + frontend)
+- Overrides: Use later templates to override specific files from base templates
+
+#### Strict Validation
+
+All template variables are validated before execution. Missing variables will produce a helpful error:
+
+```
+Error: missing required template variables:
+
+  - name
+    used in:
+      - hello.txt.tmpl
+      - config.yaml.tmpl
+  - version
+    used in:
+      - package.json.tmpl
+
+Provide missing variables using:
+  - Command line: stamp -t my-template name=<value> version=<value>
+  - Config file: Create stamp.yaml in template or config directory
+```
+
+**Note:** Variables in `.tmpl.noop` files are NOT validated.
+
+#### Custom Config Directory
+
+Override the default config directory:
+
+```bash
+# Use custom directory
+stamp -t my-template -c /path/to/configs -d ./output
+
+# Use XDG_CONFIG_HOME environment variable
+XDG_CONFIG_HOME=/custom/path stamp -t my-template
+```
+
+#### Config Directory Command
+
+Use the `config-dir` subcommand to get the config directory path:
+
+```bash
+# Print config directory path
+stamp config-dir
+
+# Use with command substitution
+mkdir -p "$(stamp config-dir)/templates/my-app"
+
+# Override with custom directory
+stamp config-dir -c /custom/config
+```
+
+This is useful for:
+- Creating templates programmatically
+- Shell scripts
+- Platform-independent documentation
 
 ## License
 

@@ -1,6 +1,8 @@
 package cmd
 
 import (
+	"bytes"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -272,5 +274,76 @@ func TestPressCmd_MissingVariables(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "missing required template variables") {
 		t.Errorf("error should indicate missing variables, got: %v", err)
+	}
+}
+
+func TestConfigDirCmd_DefaultPath(t *testing.T) {
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	cli := NewCLI()
+	err := cli.Execute([]string{"config-dir"})
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := buf.String()
+
+	// Verify output is a valid path ending with stamp
+	if filepath.Base(strings.TrimSpace(output)) != "stamp" {
+		t.Errorf("output = %q, want path ending with stamp", output)
+	}
+
+	// Verify it's an absolute path
+	if !filepath.IsAbs(strings.TrimSpace(output)) {
+		t.Errorf("output = %q, want absolute path", output)
+	}
+}
+
+func TestConfigDirCmd_OverridePath(t *testing.T) {
+	configDir := t.TempDir()
+
+	// Capture stdout
+	oldStdout := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	cli := NewCLI()
+	err := cli.Execute([]string{"config-dir", "-c", configDir})
+
+	w.Close()
+	os.Stdout = oldStdout
+
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	var buf bytes.Buffer
+	io.Copy(&buf, r)
+	output := strings.TrimSpace(buf.String())
+
+	if output != configDir {
+		t.Errorf("output = %q, want %q", output, configDir)
+	}
+}
+
+func TestConfigDirCmd_InvalidPath(t *testing.T) {
+	cli := NewCLI()
+	err := cli.Execute([]string{"config-dir", "-c", "/nonexistent/path"})
+
+	if err == nil {
+		t.Fatal("Execute() succeeded, want error")
+	}
+
+	if !strings.Contains(err.Error(), "config directory not found") {
+		t.Errorf("error = %q, want error containing 'config directory not found'", err.Error())
 	}
 }
