@@ -121,3 +121,60 @@ func ListAvailableTemplates(configDir string) ([]string, error) {
 	sort.Strings(templates)
 	return templates, nil
 }
+
+// ResolveTemplateDirs resolves multiple template directories and validates ALL exist
+// Returns all resolved paths OR comprehensive error
+func ResolveTemplateDirs(configDir string, templateNames []string) ([]string, error) {
+	if len(templateNames) == 0 {
+		return nil, fmt.Errorf("no templates specified")
+	}
+
+	var resolvedPaths []string
+	var missingTemplates []string
+	var foundTemplates []string
+
+	// Try to resolve each template
+	for _, name := range templateNames {
+		path := filepath.Join(configDir, "templates", name)
+		info, err := os.Stat(path)
+
+		if os.IsNotExist(err) {
+			missingTemplates = append(missingTemplates, name)
+			foundTemplates = append(foundTemplates, fmt.Sprintf("  ✗ %s - not found", name))
+		} else if err != nil {
+			return nil, fmt.Errorf("failed to access template '%s': %w", name, err)
+		} else if !info.IsDir() {
+			return nil, fmt.Errorf("template path is not a directory: %s", path)
+		} else {
+			resolvedPaths = append(resolvedPaths, path)
+			foundTemplates = append(foundTemplates, fmt.Sprintf("  ✓ %s - %s", name, path))
+		}
+	}
+
+	// If any templates are missing, return comprehensive error
+	if len(missingTemplates) > 0 {
+		available, _ := ListAvailableTemplates(configDir)
+
+		var sb strings.Builder
+		sb.WriteString("Failed to resolve templates:\n")
+		for _, line := range foundTemplates {
+			sb.WriteString(line + "\n")
+		}
+
+		if len(available) > 0 {
+			sb.WriteString("\nAvailable templates:\n")
+			for _, name := range available {
+				sb.WriteString(fmt.Sprintf("  - %s\n", name))
+			}
+		}
+
+		sb.WriteString("\nCreate missing templates:\n")
+		for _, name := range missingTemplates {
+			sb.WriteString(fmt.Sprintf("  mkdir -p %s/templates/%s\n", configDir, name))
+		}
+
+		return nil, fmt.Errorf("%s", sb.String())
+	}
+
+	return resolvedPaths, nil
+}

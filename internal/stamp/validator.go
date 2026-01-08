@@ -52,9 +52,39 @@ func (e *ValidationError) Error() string {
 
 // validateTemplateVars scans all .tmpl files and validates required variables are provided
 func (s *Stamper) validateTemplateVars(srcDir string) error {
-	// Map to track: variableName -> []templatePaths that use it
+	return s.validateMultipleTemplateVars([]string{srcDir})
+}
+
+// validateMultipleTemplateVars scans all template directories and validates variables
+func (s *Stamper) validateMultipleTemplateVars(srcDirs []string) error {
+	// Map to track: variableName -> []templatePaths across all templates
 	varUsage := make(map[string][]string)
 
+	// Scan all template directories
+	for _, srcDir := range srcDirs {
+		if err := s.collectTemplateVars(srcDir, varUsage); err != nil {
+			return err
+		}
+	}
+
+	// Check if any required variables are missing
+	missingVars := make(map[string][]string)
+	for varName, templatePaths := range varUsage {
+		if _, exists := s.templateVars[varName]; !exists {
+			missingVars[varName] = templatePaths
+		}
+	}
+
+	// Return error if any variables are missing
+	if len(missingVars) > 0 {
+		return &ValidationError{MissingVars: missingVars}
+	}
+
+	return nil
+}
+
+// collectTemplateVars walks a directory and collects variable usage
+func (s *Stamper) collectTemplateVars(srcDir string, varUsage map[string][]string) error {
 	// Walk directory to find all .tmpl files
 	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
@@ -95,19 +125,6 @@ func (s *Stamper) validateTemplateVars(srcDir string) error {
 
 	if err != nil {
 		return fmt.Errorf("failed to scan templates: %w", err)
-	}
-
-	// Check if any required variables are missing
-	missingVars := make(map[string][]string)
-	for varName, templatePaths := range varUsage {
-		if _, exists := s.templateVars[varName]; !exists {
-			missingVars[varName] = templatePaths
-		}
-	}
-
-	// Return error if any variables are missing
-	if len(missingVars) > 0 {
-		return &ValidationError{MissingVars: missingVars}
 	}
 
 	return nil

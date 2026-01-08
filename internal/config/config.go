@@ -53,6 +53,31 @@ func LoadHierarchical(configDir, templateName string) (map[string]string, error)
 	return mergeConfigs(globalVars, templateVars), nil
 }
 
+// LoadHierarchicalMultiple loads global and multiple template-specific configs
+// Priority: CLI args > rightmost template > ... > leftmost template > global
+func LoadHierarchicalMultiple(configDir string, templateNames []string) (map[string]string, error) {
+	// Start with global config
+	globalPath := filepath.Join(configDir, "stamp.yaml")
+	mergedVars, err := loadOptional(globalPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to load global config: %w", err)
+	}
+
+	// Merge each template config in order (left to right)
+	for _, templateName := range templateNames {
+		templatePath := filepath.Join(configDir, "templates", templateName, "stamp.yaml")
+		templateVars, err := loadOptional(templatePath)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load config for template '%s': %w", templateName, err)
+		}
+
+		// Merge with priority: current template overrides previous
+		mergedVars = mergeConfigs(mergedVars, templateVars)
+	}
+
+	return mergedVars, nil
+}
+
 // loadOptional loads a config file if it exists, returns empty map if not
 // Only errors on read/parse failures
 func loadOptional(path string) (map[string]string, error) {

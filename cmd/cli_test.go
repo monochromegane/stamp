@@ -234,7 +234,7 @@ func TestPressCmd_InvalidTemplateName(t *testing.T) {
 	if err == nil {
 		t.Fatal("Execute() should fail with non-existent template")
 	}
-	if !strings.Contains(err.Error(), "template 'does-not-exist' not found") {
+	if !strings.Contains(err.Error(), "does-not-exist") || !strings.Contains(err.Error(), "not found") {
 		t.Errorf("error should mention template not found, got: %v", err)
 	}
 }
