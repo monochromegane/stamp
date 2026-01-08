@@ -25,13 +25,8 @@ A CLI tool for copying directory structures with Go template expansion.
 
 1. Create config directory and a template:
    ```bash
-   # Linux
-   mkdir -p ~/.config/stamp/templates/my-app
-   echo "Hello {{.name}}!" > ~/.config/stamp/templates/my-app/hello.txt.tmpl
-
-   # macOS
-   mkdir -p ~/Library/Application\ Support/stamp/templates/my-app
-   echo "Hello {{.name}}!" > ~/Library/Application\ Support/stamp/templates/my-app/hello.txt.tmpl
+   mkdir -p "$(stamp config-dir)/templates/my-app"
+   echo "Hello {{.name}}!" > "$(stamp config-dir)/templates/my-app/hello.txt.tmpl"
    ```
 
 2. Use the template:
@@ -52,15 +47,20 @@ stamp uses a centralized config directory to store templates and configurations.
 
 **Default Location:**
 - `$XDG_CONFIG_HOME/stamp` (if XDG_CONFIG_HOME is set)
-- `$HOME/.config/stamp` (on Linux)
-- `$HOME/Library/Application Support/stamp` (on macOS)
-- `%AppData%\stamp` (on Windows)
+- Platform-specific default (use `stamp config-dir` to see your path)
+  - Linux: `$HOME/.config/stamp`
+  - macOS: `$HOME/Library/Application Support/stamp`
+  - Windows: `%AppData%\stamp`
+
+**Checking your config directory:**
+```bash
+stamp config-dir
+```
 
 **Directory Structure:**
 
-Example (Linux):
 ```
-~/.config/stamp/
+$(stamp config-dir)/
 ├── stamp.yaml                    # Global config (optional)
 └── templates/
     ├── go-cli/
@@ -72,47 +72,19 @@ Example (Linux):
         └── stamp.yaml
 ```
 
-Example (macOS):
-```
-~/Library/Application Support/stamp/
-├── stamp.yaml                    # Global config (optional)
-└── templates/
-    ├── go-cli/
-    │   ├── main.go.tmpl
-    │   ├── README.md.tmpl
-    │   └── stamp.yaml            # Template-specific config (optional)
-    └── web-app/
-        ├── index.html.tmpl
-        └── stamp.yaml
-```
+Note: Run `stamp config-dir` to see your actual config directory path.
 
 **Creating Templates:**
 
-Linux:
 ```bash
 # Create a new template directory
-mkdir -p ~/.config/stamp/templates/my-template
+mkdir -p "$(stamp config-dir)/templates/my-template"
 
 # Add template files
-echo "{{.message}}" > ~/.config/stamp/templates/my-template/output.txt.tmpl
+echo "{{.message}}" > "$(stamp config-dir)/templates/my-template/output.txt.tmpl"
 
 # (Optional) Add template-specific config
-cat > ~/.config/stamp/templates/my-template/stamp.yaml << EOF
-message: "Default message"
-version: "1.0.0"
-EOF
-```
-
-macOS:
-```bash
-# Create a new template directory
-mkdir -p ~/Library/Application\ Support/stamp/templates/my-template
-
-# Add template files
-echo "{{.message}}" > ~/Library/Application\ Support/stamp/templates/my-template/output.txt.tmpl
-
-# (Optional) Add template-specific config
-cat > ~/Library/Application\ Support/stamp/templates/my-template/stamp.yaml << EOF
+cat > "$(stamp config-dir)/templates/my-template/stamp.yaml" << EOF
 message: "Default message"
 version: "1.0.0"
 EOF
@@ -120,9 +92,7 @@ EOF
 
 **Global Config Format:**
 
-Create a YAML file with flat key-value pairs:
-- Linux: `~/.config/stamp/stamp.yaml`
-- macOS: `~/Library/Application Support/stamp/stamp.yaml`
+Create a YAML file at `$(stamp config-dir)/stamp.yaml` with flat key-value pairs:
 
 ```yaml
 # stamp.yaml
@@ -268,6 +238,26 @@ stamp -t my-template -c /path/to/configs -d ./output
 # Use XDG_CONFIG_HOME environment variable
 XDG_CONFIG_HOME=/custom/path stamp -t my-template
 ```
+
+#### Config Directory Command
+
+Use the `config-dir` subcommand to get the config directory path:
+
+```bash
+# Print config directory path
+stamp config-dir
+
+# Use with command substitution
+mkdir -p "$(stamp config-dir)/templates/my-app"
+
+# Override with custom directory
+stamp config-dir -c /custom/config
+```
+
+This is useful for:
+- Creating templates programmatically
+- Shell scripts
+- Platform-independent documentation
 
 ## License
 
