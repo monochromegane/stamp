@@ -16,6 +16,7 @@ type PressCmd struct {
 	Template []string          `required:"" help:"Template name(s) from config directory (can specify multiple)" short:"t"`
 	Dest     string            `optional:"" default:"." help:"Destination directory to copy to (default: current directory)" short:"d"`
 	Config   string            `optional:"" help:"Config directory path (overrides default)" short:"c"`
+	Ext      string            `optional:"" default:".tmpl" help:"Template file extension (default: .tmpl)" short:"e"`
 	Vars     map[string]string `arg:"" optional:"" help:"Template variables in KEY=VALUE format"`
 }
 
@@ -39,7 +40,7 @@ func (c *PressCmd) Run(ctx *kong.Context) error {
 	}
 
 	// 4. Execute stamper with multiple templates
-	stamper := stamp.New(mergedVars)
+	stamper := stamp.New(mergedVars, c.Ext)
 	if err := stamper.ExecuteMultiple(srcDirs, c.Dest); err != nil {
 		return fmt.Errorf("stamp failed: %w", err)
 	}
