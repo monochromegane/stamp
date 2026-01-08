@@ -8,11 +8,11 @@ import (
 	"text/template"
 )
 
-// processTemplate reads a .tmpl file, expands it, and writes to destination
-// The .tmpl extension is removed from the output filename
+// processTemplate reads a template file, expands it, and writes to destination
+// The template extension is removed from the output filename
 func (s *Stamper) processTemplate(srcPath, destPath string) error {
-	// Remove .tmpl extension from destination
-	destPath = removeTemplateExtension(destPath)
+	// Remove custom extension from destination
+	destPath = s.removeTemplateExtension(destPath)
 
 	// Read template content
 	content, err := os.ReadFile(srcPath)
@@ -41,10 +41,10 @@ func (s *Stamper) processTemplate(srcPath, destPath string) error {
 	return nil
 }
 
-// removeTemplateExtension strips .tmpl from the end of a path
-func removeTemplateExtension(path string) string {
-	if strings.HasSuffix(path, ".tmpl") {
-		return strings.TrimSuffix(path, ".tmpl")
+// removeTemplateExtension strips the template extension from the end of a path
+func (s *Stamper) removeTemplateExtension(path string) string {
+	if strings.HasSuffix(path, s.templateExt) {
+		return strings.TrimSuffix(path, s.templateExt)
 	}
 	return path
 }

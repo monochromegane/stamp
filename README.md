@@ -10,6 +10,7 @@ A CLI tool for copying directory structures with Go template expansion.
 
 - Copy directories with automatic template variable expansion
 - Support for `.tmpl` files with Go template syntax
+- Configurable template file extension (default: `.tmpl`, customizable via `--ext`)
 - Config directory with XDG Base Directory support
 - Hierarchical configuration (global + template-specific)
 - Multiple template directories with layered application
@@ -123,6 +124,15 @@ stamp -t my-template -d ./output -c /custom/config/dir name=charlie
 **Old syntax (still works):**
 ```bash
 stamp press -t my-template -d ./output name=alice
+```
+
+**Custom template extension:**
+```bash
+# Use .stamp extension instead of .tmpl (useful for chezmoi compatibility)
+stamp -t my-template --ext .stamp name=alice
+
+# Use .tpl extension
+stamp -t my-template -e .tpl name=alice
 ```
 
 ### Template Files

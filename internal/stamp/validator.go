@@ -85,7 +85,7 @@ func (s *Stamper) validateMultipleTemplateVars(srcDirs []string) error {
 
 // collectTemplateVars walks a directory and collects variable usage
 func (s *Stamper) collectTemplateVars(srcDir string, varUsage map[string][]string) error {
-	// Walk directory to find all .tmpl files
+	// Walk directory to find all template files
 	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -96,13 +96,13 @@ func (s *Stamper) collectTemplateVars(srcDir string, varUsage map[string][]strin
 			return nil
 		}
 
-		// Skip .tmpl.noop files (they don't undergo template expansion)
-		if isTmplNoopFile(path) {
+		// Skip .{ext}.noop files (they don't undergo template expansion)
+		if s.isTmplNoopFile(path) {
 			return nil
 		}
 
-		// Process only .tmpl files
-		if !strings.HasSuffix(path, ".tmpl") {
+		// Process only files with custom extension
+		if !strings.HasSuffix(path, s.templateExt) {
 			return nil
 		}
 

@@ -16,7 +16,7 @@ func TestExecute_ValidDirectories(t *testing.T) {
 	createTestFile(t, src, "readme.md", "Static content")
 
 	// Execute
-	stamper := New(nil)
+	stamper := New(nil, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -38,7 +38,7 @@ func TestExecute_TemplateExpansion(t *testing.T) {
 	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
 
 	// Execute
-	stamper := New(map[string]string{"name": "alice"})
+	stamper := New(map[string]string{"name": "alice"}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -60,7 +60,7 @@ func TestExecute_TemplateExtensionRemoved(t *testing.T) {
 	createTestFile(t, src, "code.go.tmpl", "package {{.name}}")
 
 	// Execute
-	stamper := New(map[string]string{"name": "alice"})
+	stamper := New(map[string]string{"name": "alice"}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -88,7 +88,7 @@ func TestExecute_NonTemplateFiles(t *testing.T) {
 	createTestFile(t, src, "config.json", `{"key": "value"}`)
 
 	// Execute
-	stamper := New(nil)
+	stamper := New(nil, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -117,7 +117,7 @@ func TestExecute_NestedDirectories(t *testing.T) {
 	createTestFile(t, subdir, "nested.txt", "nested content")
 
 	// Execute
-	stamper := New(nil)
+	stamper := New(nil, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -137,7 +137,7 @@ func TestExecute_SourceNotExists(t *testing.T) {
 	dest := t.TempDir()
 
 	// Execute with non-existent source
-	stamper := New(nil)
+	stamper := New(nil, ".tmpl")
 	err := stamper.Execute("/nonexistent/path", dest)
 
 	// Assert error is returned
@@ -155,7 +155,7 @@ func TestExecute_InvalidTemplate(t *testing.T) {
 	createTestFile(t, src, "bad.tmpl", "Invalid {{.missing")
 
 	// Execute
-	stamper := New(nil)
+	stamper := New(nil, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	// Assert error is returned
@@ -175,7 +175,7 @@ func TestExecute_MixedFiles(t *testing.T) {
 	createTestFile(t, src, "config.tmpl", "name={{.name}}")
 
 	// Execute
-	stamper := New(map[string]string{"name": "alice"})
+	stamper := New(map[string]string{"name": "alice"}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	// Assert
@@ -240,7 +240,7 @@ func TestExecute_CustomVariables(t *testing.T) {
 
 	// Override default "alice" with "bob"
 	customVars := map[string]string{"name": "bob"}
-	stamper := New(customVars)
+	stamper := New(customVars, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	if err != nil {
@@ -263,7 +263,7 @@ func TestExecute_MultipleCustomVariables(t *testing.T) {
 		"org":  "monochromegane",
 		"repo": "stamp",
 	}
-	stamper := New(customVars)
+	stamper := New(customVars, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	if err != nil {
@@ -282,7 +282,7 @@ func TestExecute_EmptyVariables(t *testing.T) {
 	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
 
 	// Pass empty map - should fail validation
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	if err == nil {
@@ -308,7 +308,7 @@ func TestExecute_PartialOverride(t *testing.T) {
 		"name": "alice",
 		"org":  "monochromegane",
 	}
-	stamper := New(customVars)
+	stamper := New(customVars, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	if err != nil {
@@ -327,7 +327,7 @@ func TestExecute_StrictValidation(t *testing.T) {
 	createTestFile(t, src, "hello.tmpl", "Hello {{.name}} from {{.org}}!")
 
 	// Only provide one of two required variables
-	stamper := New(map[string]string{"name": "alice"})
+	stamper := New(map[string]string{"name": "alice"}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	// Should fail validation
@@ -355,7 +355,7 @@ func TestExecute_ValidationInConditionals(t *testing.T) {
 		"{{if .debug}}Debug: {{.debugLevel}}{{end}}")
 
 	// Both variables in the if block should be required
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	if err == nil {
@@ -382,7 +382,7 @@ func TestExecute_ValidationPassesWithAllVars(t *testing.T) {
 	stamper := New(map[string]string{
 		"name": "alice",
 		"org":  "monochromegane",
-	})
+	}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	if err != nil {
@@ -402,7 +402,7 @@ func TestExecute_TmplNoopFiles(t *testing.T) {
 	createTestFile(t, src, "config.yaml.tmpl.noop", "name: {{.name}}\norg: {{.org}}")
 
 	// Execute WITHOUT providing variables
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	// Assert success (no validation error)
@@ -425,7 +425,7 @@ func TestExecute_TmplNoopExtensionRemoval(t *testing.T) {
 
 	createTestFile(t, src, "example.yaml.tmpl.noop", "content: {{.value}}")
 
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	if err != nil {
@@ -455,7 +455,7 @@ func TestExecute_MixedTmplAndTmplNoop(t *testing.T) {
 	createTestFile(t, src, "template.yaml.tmpl.noop", "name: {{.name}}")
 
 	// Execute with required variable for .tmpl file
-	stamper := New(map[string]string{"name": "alice"})
+	stamper := New(map[string]string{"name": "alice"}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	if err != nil {
@@ -481,7 +481,7 @@ func TestExecute_TmplNoopNoValidation(t *testing.T) {
 		"{{.undefined}} {{.missing}} {{.notProvided}}")
 
 	// Execute without any variables
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	// Should succeed - no validation for .tmpl.noop
@@ -505,7 +505,7 @@ func TestExecute_TmplNoopInSubdirectory(t *testing.T) {
 	os.MkdirAll(subdir, 0755)
 	createTestFile(t, subdir, "nested.tmpl.noop", "{{.var}}")
 
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	if err != nil {
@@ -528,7 +528,7 @@ func TestExecute_ComplexMixedScenario(t *testing.T) {
 	createTestFile(t, src, "static.txt", "static content")
 	createTestFile(t, src, "readme.md", "# Readme")
 
-	stamper := New(map[string]string{"name": "alice"})
+	stamper := New(map[string]string{"name": "alice"}, ".tmpl")
 	err := stamper.Execute(src, dest)
 
 	if err != nil {
@@ -540,4 +540,135 @@ func TestExecute_ComplexMixedScenario(t *testing.T) {
 	assertFileContent(t, filepath.Join(dest, "template.yaml.tmpl"), "name: {{.example}}")
 	assertFileContent(t, filepath.Join(dest, "static.txt"), "static content")
 	assertFileContent(t, filepath.Join(dest, "readme.md"), "# Readme")
+}
+
+// TestExecute_CustomExtension tests basic custom extension functionality
+func TestExecute_CustomExtension(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create file with custom .tpl extension
+	createTestFile(t, src, "hello.txt.tpl", "Hello {{.name}}!")
+
+	// Execute with custom extension
+	stamper := New(map[string]string{"name": "alice"}, ".tpl")
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	// Verify .tpl extension removed
+	expectedPath := filepath.Join(dest, "hello.txt")
+	assertFileExists(t, expectedPath)
+	assertFileContent(t, expectedPath, "Hello alice!")
+}
+
+// TestExecute_CustomExtensionNoop tests custom extension with noop files
+func TestExecute_CustomExtensionNoop(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create .tpl.noop file
+	createTestFile(t, src, "config.yaml.tpl.noop", "name: {{.name}}")
+
+	stamper := New(map[string]string{}, ".tpl")
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	// Should exist as .tpl (not .yaml)
+	expectedPath := filepath.Join(dest, "config.yaml.tpl")
+	assertFileExists(t, expectedPath)
+	assertFileContent(t, expectedPath, "name: {{.name}}")
+}
+
+// TestExecute_DefaultExtension tests that empty string defaults to .tmpl
+func TestExecute_DefaultExtension(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
+
+	// Pass empty string - should default to .tmpl
+	stamper := New(map[string]string{"name": "alice"}, "")
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() returned error: %v", err)
+	}
+
+	expectedPath := filepath.Join(dest, "hello.txt")
+	assertFileExists(t, expectedPath)
+	assertFileContent(t, expectedPath, "Hello alice!")
+}
+
+// TestExecute_CustomExtensionValidation tests validation with custom extension
+func TestExecute_CustomExtensionValidation(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create .tpl file requiring validation
+	createTestFile(t, src, "hello.tpl", "Hello {{.name}}!")
+
+	// Should fail validation with missing variable
+	stamper := New(map[string]string{}, ".tpl")
+	err := stamper.Execute(src, dest)
+
+	if err == nil {
+		t.Fatal("Execute() should fail validation")
+	}
+
+	if !strings.Contains(err.Error(), "name") {
+		t.Errorf("error should mention missing variable, got: %v", err)
+	}
+}
+
+// TestExecute_MixedExtensionsIgnored tests that only configured extension is processed
+func TestExecute_MixedExtensionsIgnored(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create files with different extensions
+	createTestFile(t, src, "file.tpl", "Content: {{.name}}")
+	createTestFile(t, src, "file.tmpl", "Ignored: {{.other}}")
+
+	// Use .tpl extension - .tmpl file should be copied as-is
+	stamper := New(map[string]string{"name": "alice"}, ".tpl")
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	// .tpl file should be processed
+	assertFileContent(t, filepath.Join(dest, "file"), "Content: alice")
+
+	// .tmpl file should be copied as-is (not processed)
+	assertFileContent(t, filepath.Join(dest, "file.tmpl"), "Ignored: {{.other}}")
+}
+
+// TestExecute_StampExtension tests .stamp extension for chezmoi compatibility
+func TestExecute_StampExtension(t *testing.T) {
+	src := t.TempDir()
+	dest := t.TempDir()
+
+	// Create files with .stamp extension
+	createTestFile(t, src, "config.yaml.stamp", "name: {{.name}}")
+	createTestFile(t, src, "template.txt.stamp.noop", "example: {{.value}}")
+
+	stamper := New(map[string]string{"name": "alice"}, ".stamp")
+	err := stamper.Execute(src, dest)
+
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	// .stamp file should be processed
+	assertFileContent(t, filepath.Join(dest, "config.yaml"), "name: alice")
+
+	// .stamp.noop file should not be processed
+	assertFileContent(t, filepath.Join(dest, "template.txt.stamp"), "example: {{.value}}")
 }

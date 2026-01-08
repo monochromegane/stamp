@@ -10,17 +10,24 @@ import (
 // Stamper handles directory copying with template expansion
 type Stamper struct {
 	templateVars map[string]string
+	templateExt  string // Template file extension (e.g., ".tmpl", ".stamp", ".tpl")
 }
 
-// New creates a new Stamper with provided template variables
-func New(vars map[string]string) *Stamper {
+// New creates a new Stamper with provided template variables and extension
+func New(vars map[string]string, ext string) *Stamper {
 	templateVars := make(map[string]string)
 	for k, v := range vars {
 		templateVars[k] = v
 	}
 
+	// Default to .tmpl if not specified
+	if ext == "" {
+		ext = ".tmpl"
+	}
+
 	return &Stamper{
 		templateVars: templateVars,
+		templateExt:  ext,
 	}
 }
 
@@ -93,9 +100,9 @@ func (s *Stamper) processTemplateDir(src, dest string) error {
 	})
 }
 
-// isTmplNoopFile checks if a file ends with .tmpl.noop
-func isTmplNoopFile(path string) bool {
-	return strings.HasSuffix(path, ".tmpl.noop")
+// isTmplNoopFile checks if a file ends with the template extension plus .noop
+func (s *Stamper) isTmplNoopFile(path string) bool {
+	return strings.HasSuffix(path, s.templateExt+".noop")
 }
 
 // removeNoopExtension strips .noop from the end of a path
@@ -108,13 +115,13 @@ func removeNoopExtension(path string) string {
 
 // processFile determines whether to template or copy a file
 func (s *Stamper) processFile(srcPath, destPath string) error {
-	// Check .tmpl.noop first (more specific)
-	if isTmplNoopFile(srcPath) {
+	// Check .{ext}.noop first (more specific)
+	if s.isTmplNoopFile(srcPath) {
 		return s.processTmplNoop(srcPath, destPath)
 	}
 
-	// Check if file ends with .tmpl
-	if strings.HasSuffix(srcPath, ".tmpl") {
+	// Check if file ends with custom extension
+	if strings.HasSuffix(srcPath, s.templateExt) {
 		return s.processTemplate(srcPath, destPath)
 	}
 	return s.copyFile(srcPath, destPath)

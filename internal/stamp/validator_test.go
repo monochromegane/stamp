@@ -167,7 +167,7 @@ func TestValidateTemplateVars_AllProvided(t *testing.T) {
 	src := t.TempDir()
 	createTestFile(t, src, "hello.tmpl", "Hello {{.name}}!")
 
-	stamper := New(map[string]string{"name": "alice"})
+	stamper := New(map[string]string{"name": "alice"}, ".tmpl")
 	err := stamper.validateTemplateVars(src)
 
 	if err != nil {
@@ -180,7 +180,7 @@ func TestValidateTemplateVars_MissingVariable(t *testing.T) {
 	src := t.TempDir()
 	createTestFile(t, src, "hello.tmpl", "Hello {{.name}}!")
 
-	stamper := New(map[string]string{}) // No variables provided
+	stamper := New(map[string]string{}, ".tmpl") // No variables provided
 	err := stamper.validateTemplateVars(src)
 
 	if err == nil {
@@ -198,7 +198,7 @@ func TestValidateTemplateVars_MultipleMissingVariables(t *testing.T) {
 	src := t.TempDir()
 	createTestFile(t, src, "info.tmpl", "{{.name}} from {{.org}}/{{.repo}}")
 
-	stamper := New(map[string]string{"name": "alice"}) // Only name provided
+	stamper := New(map[string]string{"name": "alice"}, ".tmpl") // Only name provided
 	err := stamper.validateTemplateVars(src)
 
 	if err == nil {
@@ -221,7 +221,7 @@ func TestValidateTemplateVars_MultipleTemplates(t *testing.T) {
 	createTestFile(t, src, "hello.tmpl", "Hello {{.name}}!")
 	createTestFile(t, src, "info.tmpl", "From {{.org}}")
 
-	stamper := New(map[string]string{}) // No variables
+	stamper := New(map[string]string{}, ".tmpl") // No variables
 	err := stamper.validateTemplateVars(src)
 
 	if err == nil {
@@ -247,7 +247,7 @@ func TestValidateTemplateVars_NestedTemplates(t *testing.T) {
 	createTestFile(t, src, "root.tmpl", "{{.name}}")
 	createTestFile(t, subdir, "nested.tmpl", "{{.org}}")
 
-	stamper := New(map[string]string{"name": "alice"}) // Missing 'org'
+	stamper := New(map[string]string{"name": "alice"}, ".tmpl") // Missing 'org'
 	err := stamper.validateTemplateVars(src)
 
 	if err == nil {
@@ -265,7 +265,7 @@ func TestValidateTemplateVars_NoTemplates(t *testing.T) {
 	src := t.TempDir()
 	createTestFile(t, src, "readme.md", "No templates here")
 
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.validateTemplateVars(src)
 
 	if err != nil {
@@ -281,7 +281,7 @@ func TestExecute_ValidationFailsBeforeCopy(t *testing.T) {
 	createTestFile(t, src, "hello.tmpl", "Hello {{.name}}!")
 	createTestFile(t, src, "static.txt", "Static file")
 
-	stamper := New(map[string]string{}) // Missing 'name'
+	stamper := New(map[string]string{}, ".tmpl") // Missing 'name'
 	err := stamper.Execute(src, dest)
 
 	if err == nil {
@@ -329,7 +329,7 @@ func TestValidateTemplateVars_PartialProvision(t *testing.T) {
 	src := t.TempDir()
 	createTestFile(t, src, "info.tmpl", "{{.name}} from {{.org}}")
 
-	stamper := New(map[string]string{"name": "alice"})
+	stamper := New(map[string]string{"name": "alice"}, ".tmpl")
 	err := stamper.validateTemplateVars(src)
 
 	if err == nil {
@@ -352,7 +352,7 @@ func TestValidateTemplateVars_InvalidTemplateIgnored(t *testing.T) {
 	createTestFile(t, src, "invalid.tmpl", "Invalid {{.name")
 	createTestFile(t, src, "valid.tmpl", "Valid {{.org}}")
 
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.validateTemplateVars(src)
 
 	// Should not fail due to invalid template, should check valid ones
@@ -397,7 +397,7 @@ func TestValidateTemplateVars_SkipsTmplNoopFiles(t *testing.T) {
 	createTestFile(t, src, "example.tmpl.noop", "{{.undefined}}")
 
 	// Should pass validation without providing variables
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.validateTemplateVars(src)
 
 	if err != nil {
@@ -413,7 +413,7 @@ func TestValidateTemplateVars_TmplAndTmplNoop(t *testing.T) {
 	createTestFile(t, src, "inactive.tmpl.noop", "{{.undefined}}")
 
 	// Should fail only for .tmpl file
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.validateTemplateVars(src)
 
 	if err == nil {
@@ -437,7 +437,7 @@ func TestValidateTemplateVars_OnlyTmplNoop(t *testing.T) {
 	createTestFile(t, src, "file2.tmpl.noop", "{{.var2}}")
 
 	// Should pass - no .tmpl files to validate
-	stamper := New(map[string]string{})
+	stamper := New(map[string]string{}, ".tmpl")
 	err := stamper.validateTemplateVars(src)
 
 	if err != nil {
