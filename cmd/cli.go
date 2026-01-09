@@ -13,11 +13,11 @@ import (
 const cmdName = "stamp"
 
 type PressCmd struct {
-	Template []string          `required:"" help:"Template name(s) from config directory (can specify multiple)" short:"t"`
-	Dest     string            `optional:"" default:"." help:"Destination directory to copy to (default: current directory)" short:"d"`
-	Config   string            `optional:"" help:"Config directory path (overrides default)" short:"c"`
-	Ext      string            `optional:"" default:".tmpl" help:"Template file extension (default: .tmpl)" short:"e"`
-	Vars     map[string]string `arg:"" optional:"" help:"Template variables in KEY=VALUE format"`
+	Sheet  []string          `required:"" help:"Sheet name(s) from config directory (can specify multiple)" short:"s"`
+	Dest   string            `optional:"" default:"." help:"Destination directory to copy to (default: current directory)" short:"d"`
+	Config string            `optional:"" help:"Config directory path (overrides default)" short:"c"`
+	Ext    string            `optional:"" default:".stamp" help:"Stamp file extension (default: .stamp)" short:"e"`
+	Vars   map[string]string `arg:"" optional:"" help:"Template variables in KEY=VALUE format"`
 }
 
 func (c *PressCmd) Run(ctx *kong.Context) error {
@@ -27,41 +27,41 @@ func (c *PressCmd) Run(ctx *kong.Context) error {
 		return err
 	}
 
-	// 2. Resolve ALL template directories upfront
-	srcDirs, err := configdir.ResolveTemplateDirs(configDir, c.Template)
+	// 2. Resolve ALL sheet directories upfront
+	srcDirs, err := configdir.ResolveTemplateDirs(configDir, c.Sheet)
 	if err != nil {
 		return err
 	}
 
-	// 3. Build merged variables with priority: CLI args > last template > ... > first template > global
+	// 3. Build merged variables with priority: CLI args > last sheet > ... > first sheet > global
 	mergedVars, err := c.buildVariablesForMultipleTemplates(configDir)
 	if err != nil {
 		return err
 	}
 
-	// 4. Execute stamper with multiple templates
+	// 4. Execute stamper with multiple sheets
 	stamper := stamp.New(mergedVars, c.Ext)
 	if err := stamper.ExecuteMultiple(srcDirs, c.Dest); err != nil {
 		return fmt.Errorf("stamp failed: %w", err)
 	}
 
 	// 5. Print success message
-	if len(c.Template) == 1 {
-		fmt.Fprintf(os.Stdout, "Successfully stamped template '%s' to %s\n", c.Template[0], c.Dest)
+	if len(c.Sheet) == 1 {
+		fmt.Fprintf(os.Stdout, "Successfully stamped sheet '%s' to %s\n", c.Sheet[0], c.Dest)
 	} else {
-		fmt.Fprintf(os.Stdout, "Successfully stamped templates %v to %s\n", c.Template, c.Dest)
+		fmt.Fprintf(os.Stdout, "Successfully stamped sheets %v to %s\n", c.Sheet, c.Dest)
 	}
 	return nil
 }
 
 // buildVariables implements four-level priority:
 // 1. CLI args (highest priority)
-// 2. Template-specific config
+// 2. Sheet-specific config
 // 3. Global config
 // 4. Hardcoded defaults (lowest priority - handled by stamp.New)
 // Deprecated: Use buildVariablesForMultipleTemplates for new code
 func (c *PressCmd) buildVariables(configDir string, templateName string) (map[string]string, error) {
-	// Load hierarchical configs: global + template-specific
+	// Load hierarchical configs: global + sheet-specific
 	mergedVars, err := config.LoadHierarchical(configDir, templateName)
 	if err != nil {
 		return nil, fmt.Errorf("config error: %w", err)
@@ -77,13 +77,13 @@ func (c *PressCmd) buildVariables(configDir string, templateName string) (map[st
 
 // buildVariablesForMultipleTemplates implements hierarchical priority:
 // 1. CLI args (highest priority)
-// 2. Last template's config
-// 3. Middle templates' configs
-// 4. First template's config
+// 2. Last sheet's config
+// 3. Middle sheets' configs
+// 4. First sheet's config
 // 5. Global config (lowest priority)
 func (c *PressCmd) buildVariablesForMultipleTemplates(configDir string) (map[string]string, error) {
-	// Load hierarchical configs: global + all templates (in order)
-	mergedVars, err := config.LoadHierarchicalMultiple(configDir, c.Template)
+	// Load hierarchical configs: global + all sheets (in order)
+	mergedVars, err := config.LoadHierarchicalMultiple(configDir, c.Sheet)
 	if err != nil {
 		return nil, fmt.Errorf("config error: %w", err)
 	}

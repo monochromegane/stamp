@@ -123,7 +123,7 @@ license: MIT`
 	}
 
 	// Create template-specific config
-	templateDir := filepath.Join(dir, "templates", "go-cli")
+	templateDir := filepath.Join(dir, "sheets", "go-cli")
 	if err := os.MkdirAll(templateDir, 0755); err != nil {
 		t.Fatalf("failed to create template dir: %v", err)
 	}
@@ -171,7 +171,7 @@ author: alice`
 	}
 
 	// Create template directory but no config
-	templateDir := filepath.Join(dir, "templates", "go-cli")
+	templateDir := filepath.Join(dir, "sheets", "go-cli")
 	if err := os.MkdirAll(templateDir, 0755); err != nil {
 		t.Fatalf("failed to create template dir: %v", err)
 	}
@@ -203,7 +203,7 @@ func TestLoadHierarchical_OnlyTemplateConfig(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create only template-specific config (no global)
-	templateDir := filepath.Join(dir, "templates", "go-cli")
+	templateDir := filepath.Join(dir, "sheets", "go-cli")
 	if err := os.MkdirAll(templateDir, 0755); err != nil {
 		t.Fatalf("failed to create template dir: %v", err)
 	}
@@ -241,7 +241,7 @@ func TestLoadHierarchical_NeitherConfig(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create template directory but no configs
-	templateDir := filepath.Join(dir, "templates", "go-cli")
+	templateDir := filepath.Join(dir, "sheets", "go-cli")
 	if err := os.MkdirAll(templateDir, 0755); err != nil {
 		t.Fatalf("failed to create template dir: %v", err)
 	}
@@ -279,7 +279,7 @@ func TestLoadHierarchical_InvalidTemplateConfig(t *testing.T) {
 	dir := t.TempDir()
 
 	// Create template with invalid config
-	templateDir := filepath.Join(dir, "templates", "go-cli")
+	templateDir := filepath.Join(dir, "sheets", "go-cli")
 	if err := os.MkdirAll(templateDir, 0755); err != nil {
 		t.Fatalf("failed to create template dir: %v", err)
 	}

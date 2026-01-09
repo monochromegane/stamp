@@ -9,30 +9,30 @@ A CLI tool for copying directory structures with Go template expansion.
 ## Features
 
 - Copy directories with automatic template variable expansion
-- Support for `.tmpl` files with Go template syntax
-- Configurable template file extension (default: `.tmpl`, customizable via `--ext`)
+- Support for `.stamp` files with Go template syntax
+- Configurable stamp file extension (default: `.stamp`, customizable via `--ext`)
 - Config directory with XDG Base Directory support
-- Hierarchical configuration (global + template-specific)
-- Multiple template directories with layered application
+- Hierarchical configuration (global + sheet-specific)
+- Multiple sheet directories with layered application
 - YAML config file support for variable values
 - Command-line variable overrides with priority system
 - Strict template variable validation
-- Support for `.tmpl.noop` files (copy templates without expansion)
+- Support for `.stamp.noop` files (copy sheets without expansion)
 - Simple key-value variable format
 
 ## Installation
 
 ## Quick Start
 
-1. Create config directory and a template:
+1. Create config directory and a sheet:
    ```bash
-   mkdir -p "$(stamp config-dir)/templates/my-app"
-   echo "Hello {{.name}}!" > "$(stamp config-dir)/templates/my-app/hello.txt.tmpl"
+   mkdir -p "$(stamp config-dir)/sheets/my-app"
+   echo "Hello {{.name}}!" > "$(stamp config-dir)/sheets/my-app/hello.txt.stamp"
    ```
 
-2. Use the template:
+2. Use the sheet:
    ```bash
-   stamp -t my-app name=alice
+   stamp -s my-app name=alice
    ```
 
 3. Check the result:
@@ -44,7 +44,7 @@ A CLI tool for copying directory structures with Go template expansion.
 
 ### Config Directory Setup
 
-stamp uses a centralized config directory to store templates and configurations.
+stamp uses a centralized config directory to store sheets and configurations.
 
 **Default Location:**
 - `$XDG_CONFIG_HOME/stamp` (if XDG_CONFIG_HOME is set)
@@ -63,13 +63,13 @@ stamp config-dir
 ```
 $(stamp config-dir)/
 ├── stamp.yaml                    # Global config (optional)
-└── templates/
+└── sheets/
     ├── go-cli/
-    │   ├── main.go.tmpl
-    │   ├── README.md.tmpl
+    │   ├── main.go.stamp
+    │   ├── README.md.stamp
     │   └── stamp.yaml            # Template-specific config (optional)
     └── web-app/
-        ├── index.html.tmpl
+        ├── index.html.stamp
         └── stamp.yaml
 ```
 
@@ -78,14 +78,14 @@ Note: Run `stamp config-dir` to see your actual config directory path.
 **Creating Templates:**
 
 ```bash
-# Create a new template directory
-mkdir -p "$(stamp config-dir)/templates/my-template"
+# Create a new sheet directory
+mkdir -p "$(stamp config-dir)/sheets/my-template"
 
-# Add template files
-echo "{{.message}}" > "$(stamp config-dir)/templates/my-template/output.txt.tmpl"
+# Add stamp files
+echo "{{.message}}" > "$(stamp config-dir)/sheets/my-template/output.txt.stamp"
 
-# (Optional) Add template-specific config
-cat > "$(stamp config-dir)/templates/my-template/stamp.yaml" << EOF
+# (Optional) Add sheet-specific config
+cat > "$(stamp config-dir)/sheets/my-template/stamp.yaml" << EOF
 message: "Default message"
 version: "1.0.0"
 EOF
@@ -108,38 +108,38 @@ version: 1.0.0
 **Note:** The `press` subcommand is now the default, so you can omit it.
 
 ```bash
-# Use a template from config directory (destination defaults to current directory)
-stamp -t my-template name=alice
+# Use a sheet from config directory (destination defaults to current directory)
+stamp -s my-template name=alice
 
 # Specify destination directory
-stamp -t my-template -d ./output name=alice org=acme
+stamp -s my-template -d ./output name=alice org=acme
 
-# Use multiple templates (applied sequentially)
-stamp -t base -t go-cli -d ./myproject name=bob
+# Use multiple sheets (applied sequentially)
+stamp -s base -s go-cli -d ./myproject name=bob
 
 # Override config directory
-stamp -t my-template -d ./output -c /custom/config/dir name=charlie
+stamp -s my-template -d ./output -c /custom/config/dir name=charlie
 ```
 
 **Old syntax (still works):**
 ```bash
-stamp press -t my-template -d ./output name=alice
+stamp press -s my-template -d ./output name=alice
 ```
 
-**Custom template extension:**
+**Custom sheet extension:**
 ```bash
-# Use .stamp extension instead of .tmpl (useful for chezmoi compatibility)
-stamp -t my-template --ext .stamp name=alice
+# Use .stamp extension instead of .stamp (useful for chezmoi compatibility)
+stamp -s my-template --ext .stamp name=alice
 
 # Use .tpl extension
-stamp -t my-template -e .tpl name=alice
+stamp -s my-template -e .tpl name=alice
 ```
 
-### Template Files
+### Stamp Files
 
-**`.tmpl` files** are processed as Go templates. The `.tmpl` extension is removed from the output filename.
+**`.stamp` files** are processed as Go templates. The `.stamp` extension is removed from the output filename.
 
-Example template file `hello.txt.tmpl`:
+Example stamp file `hello.txt.stamp`:
 ```
 Hello {{.name}} from {{.org}}!
 Welcome to the {{.repo}} project.
@@ -151,69 +151,69 @@ Hello alice from example!
 Welcome to the myproject project.
 ```
 
-**`.tmpl.noop` files** are copied without variable expansion, with only `.noop` removed.
+**`.stamp.noop` files** are copied without variable expansion, with only `.noop` removed.
 
-Example use case - distributing template files:
+Example use case - distributing stamp files:
 ```
-Input:  config.yaml.tmpl.noop   (content: "name: {{.name}}")
-Output: config.yaml.tmpl        (content: "name: {{.name}}" - not expanded)
+Input:  config.yaml.stamp.noop   (content: "name: {{.name}}")
+Output: config.yaml.stamp        (content: "name: {{.name}}" - not expanded)
 ```
 
-This is useful when you want to distribute template files themselves rather than expanded content.
+This is useful when you want to distribute stamp files themselves rather than expanded content.
 
-**Regular files** (without `.tmpl` extension) are copied as-is without template processing.
+**Regular files** (without `.stamp` extension) are copied as-is without sheet processing.
 
 ### Variable Priority
 
 Variables are merged with the following priority (highest to lowest):
 
 1. **Command-line arguments** - Variables specified as `key=value` on the command line
-2. **Template-specific configs** - Variables defined in `templates/{name}/stamp.yaml` (when using multiple templates, later templates override earlier ones)
+2. **Template-specific configs** - Variables defined in `sheets/{name}/stamp.yaml` (when using multiple sheets, later sheets override earlier ones)
 3. **Global config** - Variables defined in `stamp.yaml` in the config directory
 
-**Example with multiple templates:**
+**Example with multiple sheets:**
 ```bash
 # Global config: org=global-org
-# templates/base/stamp.yaml: name=alice, version=1.0
-# templates/go-cli/stamp.yaml: name=bob
+# sheets/base/stamp.yaml: name=alice, version=1.0
+# sheets/go-cli/stamp.yaml: name=bob
 # CLI args: name=charlie
 
-stamp -t base -t go-cli name=charlie
+stamp -s base -s go-cli name=charlie
 
 # Result:
 # name=charlie (from CLI - highest priority)
-# version=1.0 (from base template)
+# version=1.0 (from base sheet)
 # org=global-org (from global config - lowest priority)
 ```
 
 **Example with config file override:**
 ```bash
-# config.yaml in base template has name=alice
+# config.yaml in base sheet has name=alice
 # Command line specifies name=charlie
 # Result: name will be "charlie" (CLI overrides config)
-stamp -t base -d ./dest name=charlie
+stamp -s base -d ./dest name=charlie
 ```
 
 ### Advanced Features
 
 #### Multiple Templates
 
-You can apply multiple templates sequentially, with later templates overwriting files from earlier ones:
+You can apply multiple sheets sequentially, with later sheets overwriting files from earlier ones:
 
 ```bash
-stamp -t base -t backend -t frontend -d ./myapp name=alice
+stamp -s base -s backend -s frontend -d ./myapp name=alice
 ```
 
 **How it works:**
-1. All templates are resolved and validated upfront
+1. All sheets are resolved and validated upfront
 2. Variables are merged: CLI args > frontend config > backend config > base config > global config
 3. Templates are applied in order: base → backend → frontend
-4. If multiple templates contain the same file, the last one wins
+4. If multiple sheets contain the same file, the last one wins
 
 **Use cases:**
-- Layering: Start with a base template, add specialized features
+- Layering: Start with a base sheet, add specialized features
 - Composition: Combine independent components (backend + frontend)
-- Overrides: Use later templates to override specific files from base templates
+- Overrides: Use later sheets to override specific files from base sheets
 
 #### Strict Validation
 
@@ -224,18 +224,18 @@ Error: missing required template variables:
 
   - name
     used in:
-      - hello.txt.tmpl
-      - config.yaml.tmpl
+      - hello.txt.stamp
+      - config.yaml.stamp
   - version
     used in:
-      - package.json.tmpl
+      - package.json.stamp
 
 Provide missing variables using:
-  - Command line: stamp -t my-template name=<value> version=<value>
-  - Config file: Create stamp.yaml in template or config directory
+  - Command line: stamp -s my-template name=<value> version=<value>
+  - Config file: Create stamp.yaml in sheet or config directory
 ```
 
-**Note:** Variables in `.tmpl.noop` files are NOT validated.
+**Note:** Variables in `.stamp.noop` files are NOT validated.
 
 #### Custom Config Directory
 
@@ -243,10 +243,10 @@ Override the default config directory:
 
 ```bash
 # Use custom directory
-stamp -t my-template -c /path/to/configs -d ./output
+stamp -s my-template -c /path/to/configs -d ./output
 
 # Use XDG_CONFIG_HOME environment variable
-XDG_CONFIG_HOME=/custom/path stamp -t my-template
+XDG_CONFIG_HOME=/custom/path stamp -s my-template
 ```
 
 #### Config Directory Command
@@ -258,14 +258,14 @@ Use the `config-dir` subcommand to get the config directory path:
 stamp config-dir
 
 # Use with command substitution
-mkdir -p "$(stamp config-dir)/templates/my-app"
+mkdir -p "$(stamp config-dir)/sheets/my-app"
 
 # Override with custom directory
 stamp config-dir -c /custom/config
 ```
 
 This is useful for:
-- Creating templates programmatically
+- Creating sheets programmatically
 - Shell scripts
 - Platform-independent documentation
 
