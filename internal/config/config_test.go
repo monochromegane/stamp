@@ -110,55 +110,6 @@ version: 1.5`
 	}
 }
 
-func TestLoadHierarchical_BothConfigs(t *testing.T) {
-	dir := t.TempDir()
-
-	// Create global config
-	globalPath := filepath.Join(dir, "stamp.yaml")
-	globalContent := `org: global-org
-author: alice
-license: MIT`
-	if err := os.WriteFile(globalPath, []byte(globalContent), 0644); err != nil {
-		t.Fatalf("failed to write global config: %v", err)
-	}
-
-	// Create template-specific config
-	templateDir := filepath.Join(dir, "sheets", "go-cli")
-	if err := os.MkdirAll(templateDir, 0755); err != nil {
-		t.Fatalf("failed to create template dir: %v", err)
-	}
-	templatePath := filepath.Join(templateDir, "stamp.yaml")
-	templateContent := `name: myproject
-org: template-org`
-	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
-		t.Fatalf("failed to write template config: %v", err)
-	}
-
-	// Load hierarchical configs
-	vars, err := LoadHierarchical(dir, "go-cli")
-	if err != nil {
-		t.Fatalf("LoadHierarchical() failed: %v", err)
-	}
-
-	// Verify merge with correct priority (template > global)
-	expected := map[string]string{
-		"name":    "myproject",    // from template
-		"org":     "template-org", // template overrides global
-		"author":  "alice",        // from global
-		"license": "MIT",          // from global
-	}
-
-	if len(vars) != len(expected) {
-		t.Errorf("got %d vars, want %d: %v", len(vars), len(expected), vars)
-	}
-
-	for k, want := range expected {
-		if got := vars[k]; got != want {
-			t.Errorf("vars[%q] = %q, want %q", k, got, want)
-		}
-	}
-}
-
 func TestLoadHierarchical_OnlyGlobalConfig(t *testing.T) {
 	dir := t.TempDir()
 
@@ -186,44 +137,6 @@ author: alice`
 	expected := map[string]string{
 		"org":    "global-org",
 		"author": "alice",
-	}
-
-	if len(vars) != len(expected) {
-		t.Errorf("got %d vars, want %d", len(vars), len(expected))
-	}
-
-	for k, want := range expected {
-		if got := vars[k]; got != want {
-			t.Errorf("vars[%q] = %q, want %q", k, got, want)
-		}
-	}
-}
-
-func TestLoadHierarchical_OnlyTemplateConfig(t *testing.T) {
-	dir := t.TempDir()
-
-	// Create only template-specific config (no global)
-	templateDir := filepath.Join(dir, "sheets", "go-cli")
-	if err := os.MkdirAll(templateDir, 0755); err != nil {
-		t.Fatalf("failed to create template dir: %v", err)
-	}
-	templatePath := filepath.Join(templateDir, "stamp.yaml")
-	templateContent := `name: myproject
-org: template-org`
-	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
-		t.Fatalf("failed to write template config: %v", err)
-	}
-
-	// Load hierarchical configs
-	vars, err := LoadHierarchical(dir, "go-cli")
-	if err != nil {
-		t.Fatalf("LoadHierarchical() failed: %v", err)
-	}
-
-	// Should have only template values
-	expected := map[string]string{
-		"name": "myproject",
-		"org":  "template-org",
 	}
 
 	if len(vars) != len(expected) {
@@ -275,24 +188,112 @@ func TestLoadHierarchical_InvalidGlobalConfig(t *testing.T) {
 	}
 }
 
-func TestLoadHierarchical_InvalidTemplateConfig(t *testing.T) {
+func TestLoadHierarchical_IgnoresSheetConfig(t *testing.T) {
 	dir := t.TempDir()
 
-	// Create template with invalid config
+	// Create global config
+	globalPath := filepath.Join(dir, "stamp.yaml")
+	globalContent := `org: global-org
+author: alice`
+	if err := os.WriteFile(globalPath, []byte(globalContent), 0644); err != nil {
+		t.Fatalf("failed to write global config: %v", err)
+	}
+
+	// Create template-specific config (should be ignored)
 	templateDir := filepath.Join(dir, "sheets", "go-cli")
 	if err := os.MkdirAll(templateDir, 0755); err != nil {
 		t.Fatalf("failed to create template dir: %v", err)
 	}
 	templatePath := filepath.Join(templateDir, "stamp.yaml")
-	templateContent := `invalid: [unclosed`
+	templateContent := `name: should-be-ignored
+org: should-be-ignored`
 	if err := os.WriteFile(templatePath, []byte(templateContent), 0644); err != nil {
 		t.Fatalf("failed to write template config: %v", err)
 	}
 
 	// Load hierarchical configs
-	_, err := LoadHierarchical(dir, "go-cli")
-	if err == nil {
-		t.Fatal("LoadHierarchical() should return error for invalid template config")
+	vars, err := LoadHierarchical(dir, "go-cli")
+	if err != nil {
+		t.Fatalf("LoadHierarchical() failed: %v", err)
+	}
+
+	// Verify only global values are used (sheet config is ignored)
+	expected := map[string]string{
+		"org":    "global-org",
+		"author": "alice",
+	}
+
+	if len(vars) != len(expected) {
+		t.Errorf("got %d vars, want %d", len(vars), len(expected))
+	}
+
+	for k, want := range expected {
+		if got := vars[k]; got != want {
+			t.Errorf("vars[%q] = %q, want %q", k, got, want)
+		}
+	}
+
+	// Verify sheet config values are not present
+	if _, exists := vars["name"]; exists {
+		t.Error("sheet config 'name' should be ignored")
+	}
+}
+
+func TestLoadHierarchicalMultiple_OnlyGlobalConfig(t *testing.T) {
+	dir := t.TempDir()
+
+	// Create global config
+	globalPath := filepath.Join(dir, "stamp.yaml")
+	globalContent := `org: global-org
+author: alice
+license: MIT`
+	if err := os.WriteFile(globalPath, []byte(globalContent), 0644); err != nil {
+		t.Fatalf("failed to write global config: %v", err)
+	}
+
+	// Create multiple sheet directories with configs (all should be ignored)
+	for _, sheetName := range []string{"base", "backend", "frontend"} {
+		sheetDir := filepath.Join(dir, "sheets", sheetName)
+		if err := os.MkdirAll(sheetDir, 0755); err != nil {
+			t.Fatalf("failed to create sheet dir: %v", err)
+		}
+
+		sheetConfigPath := filepath.Join(sheetDir, "stamp.yaml")
+		sheetConfig := "name: " + sheetName + "-name\nversion: " + sheetName + "-version"
+		if err := os.WriteFile(sheetConfigPath, []byte(sheetConfig), 0644); err != nil {
+			t.Fatalf("failed to write sheet config: %v", err)
+		}
+	}
+
+	// Load hierarchical configs for multiple sheets
+	vars, err := LoadHierarchicalMultiple(dir, []string{"base", "backend", "frontend"})
+	if err != nil {
+		t.Fatalf("LoadHierarchicalMultiple() failed: %v", err)
+	}
+
+	// Verify only global values (sheet configs ignored)
+	expected := map[string]string{
+		"org":     "global-org",
+		"author":  "alice",
+		"license": "MIT",
+	}
+
+	if len(vars) != len(expected) {
+		t.Errorf("got %d vars, want %d", len(vars), len(expected))
+	}
+
+	for k, want := range expected {
+		if got := vars[k]; got != want {
+			t.Errorf("vars[%q] = %q, want %q", k, got, want)
+		}
+	}
+
+	// Verify no sheet-specific values leaked through
+	if _, exists := vars["name"]; exists {
+		t.Error("sheet config 'name' should be ignored")
+	}
+	if _, exists := vars["version"]; exists {
+		t.Error("sheet config 'version' should be ignored")
 	}
 }
 

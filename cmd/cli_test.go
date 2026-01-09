@@ -16,108 +16,7 @@ func TestNewCLI(t *testing.T) {
 	}
 }
 
-func TestPressCmd_WithTemplateConfig(t *testing.T) {
-	// Setup config directory structure
-	configDir := t.TempDir()
-	destDir := t.TempDir()
-
-	// Create template directory structure
-	templateDir := filepath.Join(configDir, "sheets", "go-cli")
-	if err := os.MkdirAll(templateDir, 0755); err != nil {
-		t.Fatalf("failed to create template dir: %v", err)
-	}
-
-	// Create template file
-	tmplPath := filepath.Join(templateDir, "hello.txt.stamp")
-	if err := os.WriteFile(tmplPath, []byte("Hello {{.name}}!"), 0644); err != nil {
-		t.Fatalf("failed to create template: %v", err)
-	}
-
-	// Create template-specific config
-	configPath := filepath.Join(templateDir, "stamp.yaml")
-	configContent := `name: charlie`
-	if err := os.WriteFile(configPath, []byte(configContent), 0644); err != nil {
-		t.Fatalf("failed to create config: %v", err)
-	}
-
-	// Execute CLI
-	cli := NewCLI()
-	args := []string{"-s", "go-cli", "-d", destDir, "-c", configDir}
-	err := cli.Execute(args)
-
-	// Assert
-	if err != nil {
-		t.Fatalf("Execute() failed: %v", err)
-	}
-
-	resultPath := filepath.Join(destDir, "hello.txt")
-	content, err := os.ReadFile(resultPath)
-	if err != nil {
-		t.Fatalf("failed to read result: %v", err)
-	}
-
-	expected := "Hello charlie!"
-	if string(content) != expected {
-		t.Errorf("content = %q, want %q", string(content), expected)
-	}
-}
-
-func TestPressCmd_HierarchicalConfig(t *testing.T) {
-	// Setup config directory structure
-	configDir := t.TempDir()
-	destDir := t.TempDir()
-
-	// Create template directory
-	templateDir := filepath.Join(configDir, "sheets", "go-cli")
-	if err := os.MkdirAll(templateDir, 0755); err != nil {
-		t.Fatalf("failed to create template dir: %v", err)
-	}
-
-	// Create template file
-	tmplPath := filepath.Join(templateDir, "hello.txt.stamp")
-	if err := os.WriteFile(tmplPath, []byte("Hello {{.name}} from {{.org}}!"), 0644); err != nil {
-		t.Fatalf("failed to create template: %v", err)
-	}
-
-	// Create global config
-	globalConfigPath := filepath.Join(configDir, "stamp.yaml")
-	globalConfig := `org: global-org
-author: alice`
-	if err := os.WriteFile(globalConfigPath, []byte(globalConfig), 0644); err != nil {
-		t.Fatalf("failed to create global config: %v", err)
-	}
-
-	// Create template-specific config (overrides org)
-	templateConfigPath := filepath.Join(templateDir, "stamp.yaml")
-	templateConfig := `name: bob
-org: template-org`
-	if err := os.WriteFile(templateConfigPath, []byte(templateConfig), 0644); err != nil {
-		t.Fatalf("failed to create template config: %v", err)
-	}
-
-	// Execute CLI
-	cli := NewCLI()
-	args := []string{"-s", "go-cli", "-d", destDir, "-c", configDir}
-	err := cli.Execute(args)
-
-	// Assert
-	if err != nil {
-		t.Fatalf("Execute() failed: %v", err)
-	}
-
-	content, err := os.ReadFile(filepath.Join(destDir, "hello.txt"))
-	if err != nil {
-		t.Fatalf("failed to read result: %v", err)
-	}
-
-	// Template config should override global (org=template-org, not global-org)
-	expected := "Hello bob from template-org!"
-	if string(content) != expected {
-		t.Errorf("content = %q, want %q (template config should override global)", string(content), expected)
-	}
-}
-
-func TestPressCmd_CLIArgsOverrideConfig(t *testing.T) {
+func TestPressCmd_CLIArgsOverrideGlobalConfig(t *testing.T) {
 	// Setup config directory structure
 	configDir := t.TempDir()
 	destDir := t.TempDir()
@@ -134,10 +33,10 @@ func TestPressCmd_CLIArgsOverrideConfig(t *testing.T) {
 		t.Fatalf("failed to create template: %v", err)
 	}
 
-	// Create config with name=charlie
-	configPath := filepath.Join(templateDir, "stamp.yaml")
-	if err := os.WriteFile(configPath, []byte("name: charlie\n"), 0644); err != nil {
-		t.Fatalf("failed to create config: %v", err)
+	// Create GLOBAL config with name=charlie (not sheet-specific)
+	globalConfigPath := filepath.Join(configDir, "stamp.yaml")
+	if err := os.WriteFile(globalConfigPath, []byte("name: charlie\n"), 0644); err != nil {
+		t.Fatalf("failed to create global config: %v", err)
 	}
 
 	// Execute with CLI override: name=dave
@@ -155,10 +54,124 @@ func TestPressCmd_CLIArgsOverrideConfig(t *testing.T) {
 		t.Fatalf("failed to read result: %v", err)
 	}
 
-	// CLI arg should win
+	// CLI arg should win over global config
 	expected := "Hello dave!"
 	if string(content) != expected {
-		t.Errorf("content = %q, want %q (CLI should override config)", string(content), expected)
+		t.Errorf("content = %q, want %q (CLI should override global config)", string(content), expected)
+	}
+}
+
+func TestPressCmd_GlobalConfigOnly(t *testing.T) {
+	configDir := t.TempDir()
+	destDir := t.TempDir()
+
+	// Create template directory
+	templateDir := filepath.Join(configDir, "sheets", "go-cli")
+	if err := os.MkdirAll(templateDir, 0755); err != nil {
+		t.Fatalf("failed to create template dir: %v", err)
+	}
+
+	// Create template file
+	tmplPath := filepath.Join(templateDir, "hello.txt.stamp")
+	if err := os.WriteFile(tmplPath, []byte("Hello {{.name}} from {{.org}}!"), 0644); err != nil {
+		t.Fatalf("failed to create template: %v", err)
+	}
+
+	// Create global config
+	globalConfigPath := filepath.Join(configDir, "stamp.yaml")
+	globalConfig := `name: alice
+org: global-org`
+	if err := os.WriteFile(globalConfigPath, []byte(globalConfig), 0644); err != nil {
+		t.Fatalf("failed to create global config: %v", err)
+	}
+
+	// Create sheet-specific config (should be ignored)
+	sheetConfigPath := filepath.Join(templateDir, "stamp.yaml")
+	sheetConfig := `name: should-be-ignored
+org: should-be-ignored`
+	if err := os.WriteFile(sheetConfigPath, []byte(sheetConfig), 0644); err != nil {
+		t.Fatalf("failed to create sheet config: %v", err)
+	}
+
+	// Execute CLI
+	cli := NewCLI()
+	args := []string{"-s", "go-cli", "-d", destDir, "-c", configDir}
+	err := cli.Execute(args)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	content, err := os.ReadFile(filepath.Join(destDir, "hello.txt"))
+	if err != nil {
+		t.Fatalf("failed to read result: %v", err)
+	}
+
+	// Should use global config values, not sheet config
+	expected := "Hello alice from global-org!"
+	if string(content) != expected {
+		t.Errorf("content = %q, want %q (should use global config, not sheet config)", string(content), expected)
+	}
+}
+
+func TestPressCmd_MultipleSheets_GlobalConfigOnly(t *testing.T) {
+	configDir := t.TempDir()
+	destDir := t.TempDir()
+
+	// Create global config
+	globalConfigPath := filepath.Join(configDir, "stamp.yaml")
+	globalConfig := `name: alice
+org: global-org
+version: 1.0.0`
+	if err := os.WriteFile(globalConfigPath, []byte(globalConfig), 0644); err != nil {
+		t.Fatalf("failed to create global config: %v", err)
+	}
+
+	// Create multiple sheets with their own configs (should all be ignored)
+	sheets := []string{"base", "backend"}
+	for _, sheetName := range sheets {
+		sheetDir := filepath.Join(configDir, "sheets", sheetName)
+		if err := os.MkdirAll(sheetDir, 0755); err != nil {
+			t.Fatalf("failed to create sheet dir: %v", err)
+		}
+
+		// Create sheet config (should be ignored)
+		sheetConfigPath := filepath.Join(sheetDir, "stamp.yaml")
+		sheetConfig := "name: " + sheetName + "-name\norg: " + sheetName + "-org"
+		if err := os.WriteFile(sheetConfigPath, []byte(sheetConfig), 0644); err != nil {
+			t.Fatalf("failed to create sheet config: %v", err)
+		}
+
+		// Create template
+		tmplPath := filepath.Join(sheetDir, sheetName+".txt.stamp")
+		if err := os.WriteFile(tmplPath, []byte("{{.name}} from {{.org}} v{{.version}}"), 0644); err != nil {
+			t.Fatalf("failed to create template: %v", err)
+		}
+	}
+
+	// Execute with multiple sheets
+	cli := NewCLI()
+	args := []string{"-s", "base", "-s", "backend", "-d", destDir, "-c", configDir}
+	err := cli.Execute(args)
+
+	// Assert
+	if err != nil {
+		t.Fatalf("Execute() failed: %v", err)
+	}
+
+	// Check both templates used global config
+	for _, sheetName := range sheets {
+		filePath := filepath.Join(destDir, sheetName+".txt")
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			t.Fatalf("failed to read %s: %v", filePath, err)
+		}
+
+		expected := "alice from global-org v1.0.0"
+		if string(content) != expected {
+			t.Errorf("%s content = %q, want %q (should use global config)", sheetName, string(content), expected)
+		}
 	}
 }
 
