@@ -31,51 +31,31 @@ func Load(path string) (map[string]string, error) {
 	return vars, nil
 }
 
-// LoadHierarchical loads global and sheet-specific configs, merging them
-// Priority: sheet-specific > global
-// Both configs are optional (returns empty map if neither exists)
+// LoadHierarchical loads global config only
+// Sheet-specific configs are no longer supported
+// Priority: CLI args > global config
+// templateName parameter is kept for compatibility but not used
 func LoadHierarchical(configDir, templateName string) (map[string]string, error) {
-	// Load global config (optional)
+	return loadGlobalConfig(configDir)
+}
+
+// LoadHierarchicalMultiple loads global config for multiple sheets
+// All sheets use the same global configuration
+// Sheet-specific configs are no longer supported
+// Priority: CLI args > global config
+// templateNames parameter is kept for compatibility but not used for config loading
+func LoadHierarchicalMultiple(configDir string, templateNames []string) (map[string]string, error) {
+	return loadGlobalConfig(configDir)
+}
+
+// loadGlobalConfig loads the global config file from the config directory
+func loadGlobalConfig(configDir string) (map[string]string, error) {
 	globalPath := filepath.Join(configDir, "stamp.yaml")
 	globalVars, err := loadOptional(globalPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load global config: %w", err)
 	}
-
-	// Load sheet-specific config (optional)
-	templatePath := filepath.Join(configDir, "sheets", templateName, "stamp.yaml")
-	templateVars, err := loadOptional(templatePath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load sheet config: %w", err)
-	}
-
-	// Merge configs with priority: sheet-specific > global
-	return mergeConfigs(globalVars, templateVars), nil
-}
-
-// LoadHierarchicalMultiple loads global and multiple sheet-specific configs
-// Priority: CLI args > rightmost sheet > ... > leftmost sheet > global
-func LoadHierarchicalMultiple(configDir string, templateNames []string) (map[string]string, error) {
-	// Start with global config
-	globalPath := filepath.Join(configDir, "stamp.yaml")
-	mergedVars, err := loadOptional(globalPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load global config: %w", err)
-	}
-
-	// Merge each sheet config in order (left to right)
-	for _, templateName := range templateNames {
-		templatePath := filepath.Join(configDir, "sheets", templateName, "stamp.yaml")
-		templateVars, err := loadOptional(templatePath)
-		if err != nil {
-			return nil, fmt.Errorf("failed to load config for sheet '%s': %w", templateName, err)
-		}
-
-		// Merge with priority: current sheet overrides previous
-		mergedVars = mergeConfigs(mergedVars, templateVars)
-	}
-
-	return mergedVars, nil
+	return globalVars, nil
 }
 
 // loadOptional loads a config file if it exists, returns empty map if not
@@ -100,21 +80,4 @@ func loadOptional(path string) (map[string]string, error) {
 	}
 
 	return vars, nil
-}
-
-// mergeConfigs merges two config maps, override takes precedence
-func mergeConfigs(base, override map[string]string) map[string]string {
-	result := make(map[string]string)
-
-	// Copy base values
-	for k, v := range base {
-		result[k] = v
-	}
-
-	// Override with values from override map
-	for k, v := range override {
-		result[k] = v
-	}
-
-	return result
 }

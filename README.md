@@ -13,7 +13,7 @@ A CLI tool for copying directory structures with Go template expansion.
 - Support for `.stamp` files with Go template syntax
 - Configurable stamp file extension (default: `.stamp`, customizable via `--ext`)
 - Config directory with XDG Base Directory support
-- Hierarchical configuration (global + sheet-specific)
+- Global configuration with command-line overrides
 - Multiple sheet directories with layered application
 - YAML config file support for variable values
 - Command-line variable overrides with priority system
@@ -79,11 +79,9 @@ $(stamp config-dir)/
 └── sheets/
     ├── go-cli/
     │   ├── main.go.stamp
-    │   ├── README.md.stamp
-    │   └── stamp.yaml            # Template-specific config (optional)
+    │   └── README.md.stamp
     └── web-app/
-        ├── index.html.stamp
-        └── stamp.yaml
+        └── index.html.stamp
 ```
 
 Note: Run `stamp config-dir` to see your actual config directory path.
@@ -96,12 +94,6 @@ mkdir -p "$(stamp config-dir)/sheets/my-template"
 
 # Add stamp files
 echo "{{.message}}" > "$(stamp config-dir)/sheets/my-template/output.txt.stamp"
-
-# (Optional) Add sheet-specific config
-cat > "$(stamp config-dir)/sheets/my-template/stamp.yaml" << EOF
-message: "Default message"
-version: "1.0.0"
-EOF
 ```
 
 **Global Config Format:**
@@ -181,27 +173,25 @@ This is useful when you want to distribute stamp files themselves rather than ex
 Variables are merged with the following priority (highest to lowest):
 
 1. **Command-line arguments** - Variables specified as `key=value` on the command line
-2. **Template-specific configs** - Variables defined in `sheets/{name}/stamp.yaml` (when using multiple sheets, later sheets override earlier ones)
-3. **Global config** - Variables defined in `stamp.yaml` in the config directory
+2. **Global config** - Variables defined in `stamp.yaml` in the config directory
 
-**Example with multiple sheets:**
+**Note:** Sheet-specific configs (`sheets/{name}/stamp.yaml`) are no longer supported. All configuration should be placed in the global `stamp.yaml` file.
+
+**Example with global config:**
 ```bash
-# Global config: org=global-org
-# sheets/base/stamp.yaml: name=alice, version=1.0
-# sheets/go-cli/stamp.yaml: name=bob
+# Global config: org=global-org, name=alice
 # CLI args: name=charlie
 
-stamp -s base -s go-cli name=charlie
+stamp -s my-template name=charlie
 
 # Result:
 # name=charlie (from CLI - highest priority)
-# version=1.0 (from base sheet)
-# org=global-org (from global config - lowest priority)
+# org=global-org (from global config)
 ```
 
 **Example with config file override:**
 ```bash
-# config.yaml in base sheet has name=alice
+# Global config has name=alice
 # Command line specifies name=charlie
 # Result: name will be "charlie" (CLI overrides config)
 stamp -s base -d ./dest name=charlie
@@ -219,7 +209,7 @@ stamp -s base -s backend -s frontend -d ./myapp name=alice
 
 **How it works:**
 1. All sheets are resolved and validated upfront
-2. Variables are merged: CLI args > frontend config > backend config > base config > global config
+2. Variables are merged: CLI args > global config
 3. Templates are applied in order: base → backend → frontend
 4. If multiple sheets contain the same file, the last one wins
 
@@ -245,7 +235,7 @@ Error: missing required template variables:
 
 Provide missing variables using:
   - Command line: stamp -s my-template name=<value> version=<value>
-  - Config file: Create stamp.yaml in sheet or config directory
+  - Config file: Create stamp.yaml in the config directory
 ```
 
 **Note:** Variables in `.stamp.noop` files are NOT validated.
