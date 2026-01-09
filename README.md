@@ -41,6 +41,18 @@ A CLI tool for copying directory structures with Go template expansion.
    cat hello.txt  # Output: Hello alice!
    ```
 
+Or collect an existing directory as a sheet:
+   ```bash
+   # Collect current directory as a sheet
+   stamp collect -s my-project
+
+   # Collect specific directory
+   stamp collect -s my-template /path/to/directory
+
+   # Collect as template (adds .stamp extension to files)
+   stamp collect -s my-template -t /path/to/directory
+   ```
+
 ## Usage
 
 ### Config Directory Setup
