@@ -32,17 +32,17 @@ func (e *ValidationError) Error() string {
 	// Format each missing variable with its usage locations
 	for _, varName := range varNames {
 		templates := e.MissingVars[varName]
-		sb.WriteString(fmt.Sprintf("  - %s\n", varName))
+		fmt.Fprintf(&sb, "  - %s\n", varName)
 		sb.WriteString("    used in:\n")
 		for _, tmpl := range templates {
-			sb.WriteString(fmt.Sprintf("      - %s\n", tmpl))
+			fmt.Fprintf(&sb, "      - %s\n", tmpl)
 		}
 	}
 
 	sb.WriteString("\nProvide missing variables using:\n")
 	sb.WriteString("  - Command line: stamp -s <sheet> -d <dest> ")
 	for _, varName := range varNames {
-		sb.WriteString(fmt.Sprintf("%s=<value> ", varName))
+		fmt.Fprintf(&sb, "%s=<value> ", varName)
 	}
 	sb.WriteString("\n")
 	sb.WriteString("  - Config file: Create stamp.yaml in sheet or config directory\n")
@@ -85,32 +85,20 @@ func (s *Stamper) validateMultipleTemplateVars(srcDirs []string) error {
 
 // collectTemplateVars walks a directory and collects variable usage
 func (s *Stamper) collectTemplateVars(srcDir string, varUsage map[string][]string) error {
-	// Walk directory to find all template files
 	err := filepath.Walk(srcDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Skip directories
-		if info.IsDir() {
-			return nil
-		}
-
-		// Skip .{ext}.noop files (they don't undergo template expansion)
-		if s.isTmplNoopFile(path) {
-			return nil
-		}
-
-		// Process only files with custom extension
-		if !strings.HasSuffix(path, s.templateExt) {
+		// Skip non-template files
+		if info.IsDir() || s.isTmplNoopFile(path) || !strings.HasSuffix(path, s.templateExt) {
 			return nil
 		}
 
 		// Extract variables from this template
+		// If template is invalid, let it fail during normal processing
 		vars, err := extractTemplateVars(path)
 		if err != nil {
-			// If template is invalid, let it fail during normal processing
-			// This validation only checks for missing variables
 			return nil
 		}
 
