@@ -36,14 +36,7 @@ func Load(path string) (map[string]string, error) {
 // Priority: CLI args > global config
 // templateName parameter is kept for compatibility but not used
 func LoadHierarchical(configDir, templateName string) (map[string]string, error) {
-	// Load global config only (optional)
-	globalPath := filepath.Join(configDir, "stamp.yaml")
-	globalVars, err := loadOptional(globalPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load global config: %w", err)
-	}
-
-	return globalVars, nil
+	return loadGlobalConfig(configDir)
 }
 
 // LoadHierarchicalMultiple loads global config for multiple sheets
@@ -52,13 +45,16 @@ func LoadHierarchical(configDir, templateName string) (map[string]string, error)
 // Priority: CLI args > global config
 // templateNames parameter is kept for compatibility but not used for config loading
 func LoadHierarchicalMultiple(configDir string, templateNames []string) (map[string]string, error) {
-	// Load global config only (optional)
+	return loadGlobalConfig(configDir)
+}
+
+// loadGlobalConfig loads the global config file from the config directory
+func loadGlobalConfig(configDir string) (map[string]string, error) {
 	globalPath := filepath.Join(configDir, "stamp.yaml")
 	globalVars, err := loadOptional(globalPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load global config: %w", err)
 	}
-
 	return globalVars, nil
 }
 
@@ -84,21 +80,4 @@ func loadOptional(path string) (map[string]string, error) {
 	}
 
 	return vars, nil
-}
-
-// mergeConfigs merges two config maps, override takes precedence
-func mergeConfigs(base, override map[string]string) map[string]string {
-	result := make(map[string]string)
-
-	// Copy base values
-	for k, v := range base {
-		result[k] = v
-	}
-
-	// Override with values from override map
-	for k, v := range override {
-		result[k] = v
-	}
-
-	return result
 }
