@@ -585,14 +585,14 @@ func TestExecute_CustomExtensionNoop(t *testing.T) {
 	assertFileContent(t, expectedPath, "name: {{.name}}")
 }
 
-// TestExecute_DefaultExtension tests that empty string defaults to .tmpl
+// TestExecute_DefaultExtension tests that empty string defaults to .stamp
 func TestExecute_DefaultExtension(t *testing.T) {
 	src := t.TempDir()
 	dest := t.TempDir()
 
-	createTestFile(t, src, "hello.txt.tmpl", "Hello {{.name}}!")
+	createTestFile(t, src, "hello.txt.stamp", "Hello {{.name}}!")
 
-	// Pass empty string - should default to .tmpl
+	// Pass empty string - should default to .stamp
 	stamper := New(map[string]string{"name": "alice"}, "")
 	err := stamper.Execute(src, dest)
 

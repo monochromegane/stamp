@@ -31,8 +31,8 @@ func Load(path string) (map[string]string, error) {
 	return vars, nil
 }
 
-// LoadHierarchical loads global and template-specific configs, merging them
-// Priority: template-specific > global
+// LoadHierarchical loads global and sheet-specific configs, merging them
+// Priority: sheet-specific > global
 // Both configs are optional (returns empty map if neither exists)
 func LoadHierarchical(configDir, templateName string) (map[string]string, error) {
 	// Load global config (optional)
@@ -42,19 +42,19 @@ func LoadHierarchical(configDir, templateName string) (map[string]string, error)
 		return nil, fmt.Errorf("failed to load global config: %w", err)
 	}
 
-	// Load template-specific config (optional)
-	templatePath := filepath.Join(configDir, "templates", templateName, "stamp.yaml")
+	// Load sheet-specific config (optional)
+	templatePath := filepath.Join(configDir, "sheets", templateName, "stamp.yaml")
 	templateVars, err := loadOptional(templatePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load template config: %w", err)
+		return nil, fmt.Errorf("failed to load sheet config: %w", err)
 	}
 
-	// Merge configs with priority: template-specific > global
+	// Merge configs with priority: sheet-specific > global
 	return mergeConfigs(globalVars, templateVars), nil
 }
 
-// LoadHierarchicalMultiple loads global and multiple template-specific configs
-// Priority: CLI args > rightmost template > ... > leftmost template > global
+// LoadHierarchicalMultiple loads global and multiple sheet-specific configs
+// Priority: CLI args > rightmost sheet > ... > leftmost sheet > global
 func LoadHierarchicalMultiple(configDir string, templateNames []string) (map[string]string, error) {
 	// Start with global config
 	globalPath := filepath.Join(configDir, "stamp.yaml")
@@ -63,15 +63,15 @@ func LoadHierarchicalMultiple(configDir string, templateNames []string) (map[str
 		return nil, fmt.Errorf("failed to load global config: %w", err)
 	}
 
-	// Merge each template config in order (left to right)
+	// Merge each sheet config in order (left to right)
 	for _, templateName := range templateNames {
-		templatePath := filepath.Join(configDir, "templates", templateName, "stamp.yaml")
+		templatePath := filepath.Join(configDir, "sheets", templateName, "stamp.yaml")
 		templateVars, err := loadOptional(templatePath)
 		if err != nil {
-			return nil, fmt.Errorf("failed to load config for template '%s': %w", templateName, err)
+			return nil, fmt.Errorf("failed to load config for sheet '%s': %w", templateName, err)
 		}
 
-		// Merge with priority: current template overrides previous
+		// Merge with priority: current sheet overrides previous
 		mergedVars = mergeConfigs(mergedVars, templateVars)
 	}
 

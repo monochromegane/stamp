@@ -10,7 +10,7 @@ import (
 // Stamper handles directory copying with template expansion
 type Stamper struct {
 	templateVars map[string]string
-	templateExt  string // Template file extension (e.g., ".tmpl", ".stamp", ".tpl")
+	templateExt  string // Stamp file extension (e.g., ".stamp", ".tmpl", ".tpl")
 }
 
 // New creates a new Stamper with provided template variables and extension
@@ -20,9 +20,9 @@ func New(vars map[string]string, ext string) *Stamper {
 		templateVars[k] = v
 	}
 
-	// Default to .tmpl if not specified
+	// Default to .stamp if not specified
 	if ext == "" {
-		ext = ".tmpl"
+		ext = ".stamp"
 	}
 
 	return &Stamper{

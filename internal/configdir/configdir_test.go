@@ -123,9 +123,9 @@ func TestGetConfigDirWithOverride(t *testing.T) {
 func TestResolveTemplateDir(t *testing.T) {
 	// Create temporary directory structure
 	tmpDir := t.TempDir()
-	templatesDir := filepath.Join(tmpDir, "templates")
-	template1 := filepath.Join(templatesDir, "go-cli")
-	template2 := filepath.Join(templatesDir, "web-app")
+	sheetsDir := filepath.Join(tmpDir, "sheets")
+	template1 := filepath.Join(sheetsDir, "go-cli")
+	template2 := filepath.Join(sheetsDir, "web-app")
 
 	if err := os.MkdirAll(template1, 0755); err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
@@ -134,8 +134,8 @@ func TestResolveTemplateDir(t *testing.T) {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
 
-	// Create a file in templates dir (not a directory)
-	notADirTemplate := filepath.Join(templatesDir, "not-a-dir")
+	// Create a file in sheets dir (not a directory)
+	notADirTemplate := filepath.Join(sheetsDir, "not-a-dir")
 	if err := os.WriteFile(notADirTemplate, []byte("test"), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
@@ -156,18 +156,18 @@ func TestResolveTemplateDir(t *testing.T) {
 			wantErr:      false,
 		},
 		{
-			name:         "non-existent template with available templates",
+			name:         "non-existent template with available sheets",
 			configDir:    tmpDir,
 			templateName: "does-not-exist",
 			wantErr:      true,
-			errContains:  []string{"template 'does-not-exist' not found", "Available templates:", "go-cli", "web-app"},
+			errContains:  []string{"sheet 'does-not-exist' not found", "Available sheets:", "go-cli", "web-app"},
 		},
 		{
-			name:         "non-existent template without templates directory",
+			name:         "non-existent template without sheets directory",
 			configDir:    t.TempDir(), // Empty temp dir
 			templateName: "any-template",
 			wantErr:      true,
-			errContains:  []string{"template 'any-template' not found", "Create template directory"},
+			errContains:  []string{"sheet 'any-template' not found", "Create sheet directory"},
 		},
 		{
 			name:         "template path is a file, not directory",
@@ -201,15 +201,15 @@ func TestResolveTemplateDir(t *testing.T) {
 	}
 }
 
-func TestListAvailableTemplates(t *testing.T) {
+func TestListAvailableSheets(t *testing.T) {
 	// Create temporary directory structure
 	tmpDir := t.TempDir()
-	templatesDir := filepath.Join(tmpDir, "templates")
+	sheetsDir := filepath.Join(tmpDir, "sheets")
 
-	// Test with templates directory
-	template1 := filepath.Join(templatesDir, "go-cli")
-	template2 := filepath.Join(templatesDir, "web-app")
-	template3 := filepath.Join(templatesDir, "api-service")
+	// Test with sheets directory
+	template1 := filepath.Join(sheetsDir, "go-cli")
+	template2 := filepath.Join(sheetsDir, "web-app")
+	template3 := filepath.Join(sheetsDir, "api-service")
 
 	if err := os.MkdirAll(template1, 0755); err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
@@ -221,8 +221,8 @@ func TestListAvailableTemplates(t *testing.T) {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
 
-	// Create a file in templates dir (should be ignored)
-	if err := os.WriteFile(filepath.Join(templatesDir, "readme.md"), []byte("test"), 0644); err != nil {
+	// Create a file in sheets dir (should be ignored)
+	if err := os.WriteFile(filepath.Join(sheetsDir, "readme.md"), []byte("test"), 0644); err != nil {
 		t.Fatalf("failed to create test file: %v", err)
 	}
 
@@ -233,13 +233,13 @@ func TestListAvailableTemplates(t *testing.T) {
 		wantErr   bool
 	}{
 		{
-			name:      "with templates",
+			name:      "with sheets",
 			configDir: tmpDir,
 			want:      []string{"api-service", "go-cli", "web-app"}, // sorted
 			wantErr:   false,
 		},
 		{
-			name:      "without templates directory",
+			name:      "without sheets directory",
 			configDir: t.TempDir(), // Empty temp dir
 			want:      []string{},
 			wantErr:   false,
@@ -248,19 +248,19 @@ func TestListAvailableTemplates(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := ListAvailableTemplates(tt.configDir)
+			got, err := ListAvailableSheets(tt.configDir)
 			if (err != nil) != tt.wantErr {
-				t.Errorf("ListAvailableTemplates() error = %v, wantErr %v", err, tt.wantErr)
+				t.Errorf("ListAvailableSheets() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			if !tt.wantErr {
 				if len(got) != len(tt.want) {
-					t.Errorf("ListAvailableTemplates() = %v, want %v", got, tt.want)
+					t.Errorf("ListAvailableSheets() = %v, want %v", got, tt.want)
 					return
 				}
 				for i, v := range got {
 					if v != tt.want[i] {
-						t.Errorf("ListAvailableTemplates()[%d] = %v, want %v", i, v, tt.want[i])
+						t.Errorf("ListAvailableSheets()[%d] = %v, want %v", i, v, tt.want[i])
 					}
 				}
 			}

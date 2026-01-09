@@ -49,128 +49,128 @@ func GetConfigDirWithOverride(override string) (string, error) {
 	return override, nil
 }
 
-// ResolveTemplateDir resolves template directory path and validates existence
-// Returns: {configDir}/templates/{templateName}/
+// ResolveTemplateDir resolves sheet directory path and validates existence
+// Returns: {configDir}/sheets/{templateName}/
 // Validates directory exists, returns helpful error if not
 func ResolveTemplateDir(configDir, templateName string) (string, error) {
-	templatePath := filepath.Join(configDir, "templates", templateName)
+	templatePath := filepath.Join(configDir, "sheets", templateName)
 
-	// Check if template directory exists
+	// Check if sheet directory exists
 	info, err := os.Stat(templatePath)
 	if os.IsNotExist(err) {
-		// Template doesn't exist - provide helpful error with available templates
-		available, listErr := ListAvailableTemplates(configDir)
+		// Sheet doesn't exist - provide helpful error with available sheets
+		available, listErr := ListAvailableSheets(configDir)
 		if listErr != nil || len(available) == 0 {
-			return "", fmt.Errorf("template '%s' not found in %s/templates/\n\nCreate template directory: mkdir -p %s/templates/%s",
+			return "", fmt.Errorf("sheet '%s' not found in %s/sheets/\n\nCreate sheet directory: mkdir -p %s/sheets/%s",
 				templateName, configDir, configDir, templateName)
 		}
 
 		var sb strings.Builder
-		sb.WriteString(fmt.Sprintf("template '%s' not found in %s/templates/\n\n", templateName, configDir))
-		sb.WriteString("Available templates:\n")
+		sb.WriteString(fmt.Sprintf("sheet '%s' not found in %s/sheets/\n\n", templateName, configDir))
+		sb.WriteString("Available sheets:\n")
 		for _, name := range available {
 			sb.WriteString(fmt.Sprintf("  - %s\n", name))
 		}
-		sb.WriteString(fmt.Sprintf("\nCreate new template: mkdir -p %s/templates/%s", configDir, templateName))
+		sb.WriteString(fmt.Sprintf("\nCreate new sheet: mkdir -p %s/sheets/%s", configDir, templateName))
 		return "", fmt.Errorf("%s", sb.String())
 	}
 	if err != nil {
-		return "", fmt.Errorf("failed to access template directory: %w", err)
+		return "", fmt.Errorf("failed to access sheet directory: %w", err)
 	}
 	if !info.IsDir() {
-		return "", fmt.Errorf("template path is not a directory: %s", templatePath)
+		return "", fmt.Errorf("sheet path is not a directory: %s", templatePath)
 	}
 
 	return templatePath, nil
 }
 
-// ListAvailableTemplates returns list of template names in config directory
-// Returns: []string of template names from templates/ subdirectory
-// Used for error messages when template not found
-func ListAvailableTemplates(configDir string) ([]string, error) {
-	templatesDir := filepath.Join(configDir, "templates")
+// ListAvailableSheets returns list of sheet names in config directory
+// Returns: []string of sheet names from sheets/ subdirectory
+// Used for error messages when sheet not found
+func ListAvailableSheets(configDir string) ([]string, error) {
+	sheetsDir := filepath.Join(configDir, "sheets")
 
-	// Check if templates directory exists
-	info, err := os.Stat(templatesDir)
+	// Check if sheets directory exists
+	info, err := os.Stat(sheetsDir)
 	if os.IsNotExist(err) {
-		// Templates directory doesn't exist - return empty slice (not an error)
+		// Sheets directory doesn't exist - return empty slice (not an error)
 		return []string{}, nil
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to access templates directory: %w", err)
+		return nil, fmt.Errorf("failed to access sheets directory: %w", err)
 	}
 	if !info.IsDir() {
 		return []string{}, nil
 	}
 
-	// Read templates directory
-	entries, err := os.ReadDir(templatesDir)
+	// Read sheets directory
+	entries, err := os.ReadDir(sheetsDir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read templates directory: %w", err)
+		return nil, fmt.Errorf("failed to read sheets directory: %w", err)
 	}
 
-	// Collect directory names (templates)
-	var templates []string
+	// Collect directory names (sheets)
+	var sheets []string
 	for _, entry := range entries {
 		if entry.IsDir() {
-			templates = append(templates, entry.Name())
+			sheets = append(sheets, entry.Name())
 		}
 	}
 
 	// Sort for consistent output
-	sort.Strings(templates)
-	return templates, nil
+	sort.Strings(sheets)
+	return sheets, nil
 }
 
-// ResolveTemplateDirs resolves multiple template directories and validates ALL exist
+// ResolveTemplateDirs resolves multiple sheet directories and validates ALL exist
 // Returns all resolved paths OR comprehensive error
 func ResolveTemplateDirs(configDir string, templateNames []string) ([]string, error) {
 	if len(templateNames) == 0 {
-		return nil, fmt.Errorf("no templates specified")
+		return nil, fmt.Errorf("no sheets specified")
 	}
 
 	var resolvedPaths []string
 	var missingTemplates []string
 	var foundTemplates []string
 
-	// Try to resolve each template
+	// Try to resolve each sheet
 	for _, name := range templateNames {
-		path := filepath.Join(configDir, "templates", name)
+		path := filepath.Join(configDir, "sheets", name)
 		info, err := os.Stat(path)
 
 		if os.IsNotExist(err) {
 			missingTemplates = append(missingTemplates, name)
 			foundTemplates = append(foundTemplates, fmt.Sprintf("  ✗ %s - not found", name))
 		} else if err != nil {
-			return nil, fmt.Errorf("failed to access template '%s': %w", name, err)
+			return nil, fmt.Errorf("failed to access sheet '%s': %w", name, err)
 		} else if !info.IsDir() {
-			return nil, fmt.Errorf("template path is not a directory: %s", path)
+			return nil, fmt.Errorf("sheet path is not a directory: %s", path)
 		} else {
 			resolvedPaths = append(resolvedPaths, path)
 			foundTemplates = append(foundTemplates, fmt.Sprintf("  ✓ %s - %s", name, path))
 		}
 	}
 
-	// If any templates are missing, return comprehensive error
+	// If any sheets are missing, return comprehensive error
 	if len(missingTemplates) > 0 {
-		available, _ := ListAvailableTemplates(configDir)
+		available, _ := ListAvailableSheets(configDir)
 
 		var sb strings.Builder
-		sb.WriteString("Failed to resolve templates:\n")
+		sb.WriteString("Failed to resolve sheets:\n")
 		for _, line := range foundTemplates {
 			sb.WriteString(line + "\n")
 		}
 
 		if len(available) > 0 {
-			sb.WriteString("\nAvailable templates:\n")
+			sb.WriteString("\nAvailable sheets:\n")
 			for _, name := range available {
 				sb.WriteString(fmt.Sprintf("  - %s\n", name))
 			}
 		}
 
-		sb.WriteString("\nCreate missing templates:\n")
+		sb.WriteString("\nCreate missing sheets:\n")
 		for _, name := range missingTemplates {
-			sb.WriteString(fmt.Sprintf("  mkdir -p %s/templates/%s\n", configDir, name))
+			sb.WriteString(fmt.Sprintf("  mkdir -p %s/sheets/%s\n", configDir, name))
 		}
 
 		return nil, fmt.Errorf("%s", sb.String())
