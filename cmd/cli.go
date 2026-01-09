@@ -233,7 +233,7 @@ func NewCLI() *CLI {
 func (c *CLI) Execute(args []string) error {
 	parser := kong.Must(c,
 		kong.Name(cmdName),
-		kong.Description("A CLI tool"),
+		kong.Description("A CLI tool for copying directory structures with Go template expansion"),
 		kong.UsageOnError(),
 		kong.Vars{
 			"version": fmt.Sprintf("%s v%s (rev:%s)", cmdName, version, revision),
