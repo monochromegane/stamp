@@ -4,6 +4,10 @@
 - Refactor to use maps.Copy and fmt.Fprintf for better code quality by @monochromegane in https://github.com/monochromegane/stamp/pull/12
 - Update CLI description to be more descriptive by @monochromegane in https://github.com/monochromegane/stamp/pull/14
 
+## [v0.0.3](https://github.com/monochromegane/stamp/compare/v0.0.2...v0.0.3) - 2026-01-09
+- Refactor to use maps.Copy and fmt.Fprintf for better code quality by @monochromegane in https://github.com/monochromegane/stamp/pull/12
+- Update CLI description to be more descriptive by @monochromegane in https://github.com/monochromegane/stamp/pull/14
+
 ## [v0.0.2](https://github.com/monochromegane/stamp/compare/v0.0.1...v0.0.2) - 2026-01-09
 - Add configurable template extension option to press subcommand by @monochromegane in https://github.com/monochromegane/stamp/pull/8
 - Add collect subcommand and rename terminology: template→sheet. by @monochromegane in https://github.com/monochromegane/stamp/pull/10
