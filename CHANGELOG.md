@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.4](https://github.com/monochromegane/stamp/compare/v0.0.3...v0.0.4) - 2026-01-09
+- Remove duplicated changelog by @monochromegane in https://github.com/monochromegane/stamp/pull/17
+- Remove sheet-specific config support, use global config only by @monochromegane in https://github.com/monochromegane/stamp/pull/19
+
 ## [v0.0.3](https://github.com/monochromegane/stamp/compare/v0.0.2...v0.0.3) - 2026-01-09
 - Refactor to use maps.Copy and fmt.Fprintf for better code quality by @monochromegane in https://github.com/monochromegane/stamp/pull/12
 - Update CLI description to be more descriptive by @monochromegane in https://github.com/monochromegane/stamp/pull/14
