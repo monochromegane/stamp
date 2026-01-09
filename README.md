@@ -9,6 +9,7 @@ A CLI tool for copying directory structures with Go template expansion.
 ## Features
 
 - Copy directories with automatic template variable expansion
+- **Sheets**: A sheet is a directory that contains multiple stamps (template files and regular files) applied together as a unit
 - Support for `.stamp` files with Go template syntax
 - Configurable stamp file extension (default: `.stamp`, customizable via `--ext`)
 - Config directory with XDG Base Directory support
