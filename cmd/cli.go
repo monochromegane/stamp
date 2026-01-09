@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/alecthomas/kong"
 	"github.com/monochromegane/stamp/internal/config"
@@ -96,6 +97,136 @@ func (c *PressCmd) buildVariablesForMultipleTemplates(configDir string) (map[str
 	return mergedVars, nil
 }
 
+type CollectCmd struct {
+	Sheet     string `required:"" help:"Sheet name to create" short:"s"`
+	Source    string `arg:"" optional:"" default:"." help:"Source file or directory to collect (default: current directory)"`
+	Config    string `optional:"" help:"Config directory path (overrides default)" short:"c"`
+	Template  bool   `optional:"" help:"Treat collected files as templates (add .stamp extension)" short:"t"`
+	Ext       string `optional:"" default:".stamp" help:"Template extension to add when --template is set (default: .stamp)" short:"e"`
+	Recursive bool   `optional:"" default:"true" negatable:"" help:"Recursively copy directories (default: true, use --no-recursive to disable)" short:"r"`
+}
+
+func (c *CollectCmd) Run(ctx *kong.Context) error {
+	// 1. Resolve config directory
+	configDir, err := configdir.GetConfigDirWithOverride(c.Config)
+	if err != nil {
+		return err
+	}
+
+	// 2. Validate source path exists
+	srcInfo, err := os.Stat(c.Source)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("source path not found: %s", c.Source)
+		}
+		return fmt.Errorf("failed to stat source: %w", err)
+	}
+
+	// 3. Build destination: {configDir}/sheets/{Sheet}/
+	destDir := filepath.Join(configDir, "sheets", c.Sheet)
+
+	// 4. Check if sheet already exists
+	if _, err := os.Stat(destDir); !os.IsNotExist(err) {
+		return fmt.Errorf("sheet '%s' already exists at %s", c.Sheet, destDir)
+	}
+
+	// 5. Create destination directory
+	if err := os.MkdirAll(destDir, 0755); err != nil {
+		return fmt.Errorf("failed to create sheet directory: %w", err)
+	}
+
+	// 6. Copy files
+	if srcInfo.IsDir() {
+		if err := c.copyDirWithSkip(c.Source, destDir); err != nil {
+			return err
+		}
+	} else {
+		destPath := filepath.Join(destDir, filepath.Base(c.Source))
+		if err := c.copyFileWithTemplate(c.Source, destPath); err != nil {
+			return err
+		}
+	}
+
+	// 7. Print success message
+	fmt.Fprintf(os.Stdout, "Successfully collected to sheet '%s' at %s\n", c.Sheet, destDir)
+	return nil
+}
+
+func (c *CollectCmd) copyDirWithSkip(src, dest string) error {
+	// Non-recursive mode: only copy files directly in src directory
+	if !c.Recursive {
+		entries, err := os.ReadDir(src)
+		if err != nil {
+			return fmt.Errorf("failed to read directory: %w", err)
+		}
+
+		for _, entry := range entries {
+			// Skip .git
+			if entry.Name() == ".git" {
+				continue
+			}
+
+			// Skip directories in non-recursive mode
+			if entry.IsDir() {
+				continue
+			}
+
+			srcPath := filepath.Join(src, entry.Name())
+			destPath := filepath.Join(dest, entry.Name())
+			if err := c.copyFileWithTemplate(srcPath, destPath); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+
+	// Recursive mode: use filepath.Walk
+	return filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
+		relPath, err := filepath.Rel(src, path)
+		if err != nil {
+			return fmt.Errorf("failed to get relative path: %w", err)
+		}
+
+		// Skip .git (both directory and file for git worktree support)
+		if info.Name() == ".git" {
+			if info.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil // Skip file
+		}
+
+		destPath := filepath.Join(dest, relPath)
+
+		if info.IsDir() {
+			return os.MkdirAll(destPath, 0755)
+		}
+
+		return c.copyFileWithTemplate(path, destPath)
+	})
+}
+
+func (c *CollectCmd) copyFileWithTemplate(src, dest string) error {
+	content, err := os.ReadFile(src)
+	if err != nil {
+		return fmt.Errorf("failed to read file %s: %w", src, err)
+	}
+
+	// Add extension if template flag is set
+	if c.Template {
+		dest = dest + c.Ext
+	}
+
+	if err := os.WriteFile(dest, content, 0644); err != nil {
+		return fmt.Errorf("failed to write file %s: %w", dest, err)
+	}
+
+	return nil
+}
+
 type ConfigDirCmd struct {
 	Config string `optional:"" help:"Config directory path (overrides default)" short:"c"`
 }
@@ -113,6 +244,7 @@ func (c *ConfigDirCmd) Run(ctx *kong.Context) error {
 type CLI struct {
 	Version   kong.VersionFlag `help:"Show version"`
 	Press     PressCmd         `cmd:"" default:"withargs" help:"Copy directory structure with template expansion"`
+	Collect   CollectCmd       `cmd:"" help:"Collect directory or files as a new sheet"`
 	ConfigDir ConfigDirCmd     `cmd:"" help:"Print config directory path"`
 }
 
