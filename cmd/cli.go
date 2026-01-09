@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"path/filepath"
 
@@ -55,27 +56,6 @@ func (c *PressCmd) Run(ctx *kong.Context) error {
 	return nil
 }
 
-// buildVariables implements four-level priority:
-// 1. CLI args (highest priority)
-// 2. Sheet-specific config
-// 3. Global config
-// 4. Hardcoded defaults (lowest priority - handled by stamp.New)
-// Deprecated: Use buildVariablesForMultipleTemplates for new code
-func (c *PressCmd) buildVariables(configDir string, templateName string) (map[string]string, error) {
-	// Load hierarchical configs: global + sheet-specific
-	mergedVars, err := config.LoadHierarchical(configDir, templateName)
-	if err != nil {
-		return nil, fmt.Errorf("config error: %w", err)
-	}
-
-	// Override with CLI args (highest priority)
-	for k, v := range c.Vars {
-		mergedVars[k] = v
-	}
-
-	return mergedVars, nil
-}
-
 // buildVariablesForMultipleTemplates implements hierarchical priority:
 // 1. CLI args (highest priority)
 // 2. Last sheet's config
@@ -90,9 +70,7 @@ func (c *PressCmd) buildVariablesForMultipleTemplates(configDir string) (map[str
 	}
 
 	// Override with CLI args (highest priority)
-	for k, v := range c.Vars {
-		mergedVars[k] = v
-	}
+	maps.Copy(mergedVars, c.Vars)
 
 	return mergedVars, nil
 }
