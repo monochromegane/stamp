@@ -1,5 +1,8 @@
 # Changelog
 
+## [v0.0.5](https://github.com/monochromegane/stamp/compare/v0.0.4...v0.0.5) - 2026-01-11
+- Add installation instructions for Homebrew and Go install by @monochromegane in https://github.com/monochromegane/stamp/pull/20
+
 ## [v0.0.4](https://github.com/monochromegane/stamp/compare/v0.0.3...v0.0.4) - 2026-01-09
 - Remove duplicated changelog by @monochromegane in https://github.com/monochromegane/stamp/pull/17
 - Remove sheet-specific config support, use global config only by @monochromegane in https://github.com/monochromegane/stamp/pull/19
