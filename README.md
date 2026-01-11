@@ -23,6 +23,19 @@ A CLI tool for copying directory structures with Go template expansion.
 
 ## Installation
 
+### Homebrew
+
+```bash
+brew tap monochromegane/tap
+brew install monochromegane/tap/stamp
+```
+
+### Go Install
+
+```bash
+go install github.com/monochromegane/stamp@latest
+```
+
 ## Quick Start
 
 1. Create config directory and a sheet:
